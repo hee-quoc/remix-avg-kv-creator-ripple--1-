@@ -1,0 +1,10 @@
+{
+  "name": "Remix AVG KV Creator Ripple",
+  "description": "Generative KV creator with 8 category presets, 10 visual styles, audio reactivity, and vector SVG/MP4 export.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
