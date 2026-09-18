@@ -9,10 +9,12 @@ import { CompositionModeControls } from './CompositionModeControls';
 import { TextLayoutControls } from './TextLayoutControls';
 import { WaveVariationControls } from './WaveVariationControls';
 import { FrequencyMappingControls } from './FrequencyMappingControls';
+import { DynamicThicknessControls } from './DynamicThicknessControls';
 import { Radial3DControls } from './Radial3DControls';
 import { AsciiControls } from './AsciiControls';
-import { BreakingSignalControls } from './BreakingSignalControls';
+import { TangentLineControls } from './TangentLineControls';
 import { ModularStripControls } from './ModularStripControls';
+import { TypographyRippleControls } from './TypographyRippleControls';
 import { StitchCraftControls } from './StitchCraftControls';
 import { MultiColorDotControls } from './MultiColorDotControls';
 import {
@@ -49,6 +51,7 @@ interface ControlsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectPreset: (presetId: string) => void;
+  onSelectFlipDiscPreset?: (presetId: string) => void;
 }
 
 type TabType = 'presets' | 'styles' | 'composition' | 'typography' | 'grid' | 'wavefront' | 'style';
@@ -80,7 +83,8 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
   onUpdateState,
   isOpen,
   onClose,
-  onSelectPreset
+  onSelectPreset,
+  onSelectFlipDiscPreset
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('typography');
   const [videoDuration, setVideoDuration] = useState(5);
@@ -796,9 +800,9 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
               <AsciiControls state={state} onUpdateState={onUpdateState} />
             )}
 
-            {/* Breaking Signal Line Controls when tangent_line is selected */}
+            {/* Tangent Line material controls when tangent_line shape is selected */}
             {state.grid.dotShape === 'tangent_line' && (
-              <BreakingSignalControls state={state} onUpdateState={onUpdateState} />
+              <TangentLineControls state={state} onUpdateState={onUpdateState} />
             )}
 
             {/* Stitch Craft Controls when stitch/woven shape or style is selected */}
@@ -811,6 +815,11 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
             {/* Modular Signal Field Controls (Breaking Signal redesign) when modular_strip is active */}
             {(state.grid.dotShape === 'modular_strip' || state.compositionMode === 'modular_signal_field') && (
               <ModularStripControls state={state} onUpdateState={onUpdateState} />
+            )}
+
+            {/* Typography Radial Ripple Controls (Breaking Signal redesign #2) */}
+            {state.compositionMode === 'typography_ripple' && (
+              <TypographyRippleControls state={state} onUpdateState={onUpdateState} />
             )}
 
             {/* Multi-Color Dot Controls */}
@@ -1785,6 +1794,12 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
             {/* Advanced Frequency Control — Spatial / Thickness / Motion mapping (applies to every pattern) */}
             <FrequencyMappingControls state={state} onUpdateState={onUpdateState} />
 
+            {/* Dynamic Visual Thickness — per-ring thickness ported from 3D Radial Wave (2D patterns only;
+                radial_3d keeps its own dedicated thickness system via Radial3DControls above) */}
+            {state.wave.pattern !== 'radial_3d' && (
+              <DynamicThicknessControls state={state} onUpdateState={onUpdateState} />
+            )}
+
             {/* Audio Reactivity Controls */}
             <AudioReactivityControls state={state} onUpdateState={onUpdateState} />
           </div>
@@ -2091,7 +2106,7 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
         {/* ================= TAB: PRESETS & EXPORT ================= */}
         {activeTab === 'presets' && (
           <div className="space-y-4 font-mono">
-            <PresetGallery state={state} onSelectPreset={onSelectPreset} />
+            <PresetGallery state={state} onSelectPreset={onSelectPreset} onSelectFlipDiscPreset={onSelectFlipDiscPreset} />
 
             <div className="pt-4 border-t border-[#222] space-y-3">
               <label className="block text-[#888888] text-[11px] uppercase tracking-wider">PRODUCTION EXPORTS</label>

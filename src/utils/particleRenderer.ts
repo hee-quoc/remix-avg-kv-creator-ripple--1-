@@ -1,6 +1,7 @@
 import { SDFData, sampleSDF } from './sdf';
 import { calculateWave, createWaveFrameContext, WaveFrameContext, WaveResult, AudioSignal } from './wave';
-import { GridConfig, WaveConfig, FontConfig, StyleConfig, CustomSvgLayer, CustomSvgDistribution, CompositionMode, Radial3DConfig, ModularStripConfig } from '../types';
+import type { AudioConfig } from '../types';
+import { GridConfig, WaveConfig, FontConfig, StyleConfig, CustomSvgLayer, CustomSvgDistribution, CompositionMode, Radial3DConfig, ModularStripConfig, TypographyRippleConfig } from '../types';
 
 export const DESIGN_WIDTH = 1920;
 export const DESIGN_HEIGHT = 1080;
@@ -22,6 +23,8 @@ export interface Particle {
   assignedLayerIndices?: number[];
   char?: string;
   fontSize?: number;
+  fontFamily?: string;
+  glyphColor?: string;
   extrusionDepth?: number;
   extrusionAngle?: number;
   label?: string;
@@ -669,6 +672,208 @@ export function computeModularStripParticles(
   return particles;
 }
 
+// ============================================================================
+// TYPOGRAPHY RADIAL RIPPLE (Breaking Signal redesign #2)
+// Paragraph text laid out as individual character blocks (colored cell + glyph), radially displaced
+// by the SAME existing wave/ripple engine (wave.ts calculateWave — circular/pulse/flow), not a bespoke
+// motion system. Reuses the same Particle[] pipeline; only compositionMode === 'typography_ripple'
+// opts into this path, so every other preset is completely unaffected.
+// ============================================================================
+
+export const DEFAULT_TYPOGRAPHY_RIPPLE_CONFIG: TypographyRippleConfig = {
+  text:
+    'SIGNAL LOST IN THE BROADCAST SEQUENCE OF THIS DISRUPTED TRANSMISSION. THE NETWORK REROUTES EVERY FREQUENCY THROUGH LAYERS OF INTERFERENCE AS EDITORIAL DESKS RACE TO CONFIRM THE SOURCE.\n\nAcross every channel, fragmented signals rebuild themselves into a single verified broadcast, carrying the story forward before the next disruption arrives.',
+  fontFamily: 'Times New Roman',
+  fontSize: 29,
+  textColor: '#FFFFFF',
+  blockWidth: 16,
+  blockHeight: 32,
+  lineHeight: 42,
+  marginX: 90,
+  paragraphGap: 55,
+  verticalPulseStrength: 18,
+  blockScaleAmount: 0.08
+};
+
+interface TypoCharCell {
+  char: string;
+  baseX: number;
+  baseY: number;
+  color: string;
+  phase: number;
+}
+
+let cachedTypoKey = '';
+let cachedTypoCells: TypoCharCell[] = [];
+
+/**
+ * Word-wraps the paragraph text into fixed-width character cells (monospace-style layout regardless
+ * of actual glyph metrics, matching the reference sketch) and assigns each character a color from the
+ * existing multi-color palette system, then centers the whole block vertically. Cached by every input
+ * that affects layout/color so it isn't rebuilt every animation frame — only recomputed when the user
+ * edits text, typography, or color settings (item 7 / performance).
+ */
+function buildTypographyCells(
+  cfg: TypographyRippleConfig,
+  style: StyleConfig,
+  width: number,
+  height: number,
+  seed: number
+): TypoCharCell[] {
+  const palette =
+    style.enableMultiColor && style.multiColorPalette && style.multiColorPalette.length > 0
+      ? style.multiColorPalette
+      : [style.dotColor];
+  const distribution = style.multiColorDistribution || 'palette_list';
+
+  const key = `${cfg.text}|${cfg.blockWidth}|${cfg.lineHeight}|${cfg.marginX}|${cfg.paragraphGap}|${width}|${height}|${seed}|${palette.join(
+    ','
+  )}|${distribution}`;
+  if (key === cachedTypoKey && cachedTypoCells.length > 0) {
+    return cachedTypoCells;
+  }
+
+  const paragraphs = cfg.text.split('\n');
+  const availableWidth = Math.max(cfg.blockWidth * 4, width - cfg.marginX * 2);
+  const maxChars = Math.max(1, Math.floor(availableWidth / cfg.blockWidth));
+
+  const cells: TypoCharCell[] = [];
+  let currentY = 0;
+  let lineIndex = 0;
+  let charIndex = 0;
+
+  for (const rawParagraph of paragraphs) {
+    const paragraph = rawParagraph.trim();
+    if (paragraph.length === 0) {
+      currentY += cfg.paragraphGap;
+      continue;
+    }
+
+    const words = paragraph.split(' ');
+    const wrappedLines: string[] = [];
+    let currentLine = '';
+    for (const word of words) {
+      const testLine = currentLine.length === 0 ? word : currentLine + ' ' + word;
+      if (testLine.length > maxChars && currentLine.length > 0) {
+        wrappedLines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    }
+    if (currentLine.length > 0) wrappedLines.push(currentLine);
+
+    for (const lineText of wrappedLines) {
+      const lineWidth = lineText.length * cfg.blockWidth;
+      const startX = width / 2 - lineWidth / 2;
+
+      for (let i = 0; i < lineText.length; i++) {
+        const ch = lineText[i];
+        if (ch === ' ') continue;
+
+        let color = palette[0];
+        if (distribution === 'random') {
+          color = palette[Math.abs((charIndex * 2654435761 + seed) | 0) % palette.length];
+        } else if (distribution === 'grouped') {
+          color = palette[lineIndex % palette.length];
+        } else if (distribution === 'gradient_based') {
+          const t = Math.max(0, Math.min(0.999, i / Math.max(1, lineText.length - 1)));
+          color = palette[Math.floor(t * palette.length)];
+        } else {
+          // 'palette_list' — smooth-ish clustering via a coarse deterministic hash of (column, line),
+          // matching the reference's noise-based color blobs without needing a Perlin implementation.
+          const h = prng(seed + 613, Math.floor(i / 2) * 31 + lineIndex * 7);
+          color = palette[Math.floor(h * palette.length) % palette.length];
+        }
+
+        cells.push({
+          char: ch,
+          baseX: startX + i * cfg.blockWidth + cfg.blockWidth / 2,
+          baseY: currentY,
+          color,
+          phase: prng(seed + 919, charIndex) * Math.PI * 2
+        });
+        charIndex++;
+      }
+
+      currentY += cfg.lineHeight;
+      lineIndex++;
+    }
+
+    currentY += 5;
+  }
+
+  // Center the whole composition vertically within the canvas
+  if (cells.length > 0) {
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const c of cells) {
+      minY = Math.min(minY, c.baseY);
+      maxY = Math.max(maxY, c.baseY);
+    }
+    const compositionCenterY = (minY + maxY) / 2;
+    const offsetY = height / 2 - compositionCenterY;
+    for (const c of cells) c.baseY += offsetY;
+  }
+
+  cachedTypoKey = key;
+  cachedTypoCells = cells;
+  return cells;
+}
+
+/**
+ * Computes particles for the Typography Radial Ripple mode. Each character cell's displacement,
+ * envelope intensity, and scale pulse come directly from the existing wave engine (calculateWave —
+ * circular/pulse pattern by convention, but honors whatever pattern/mode the user has configured), so
+ * this is a real ripple driven by the same engine as every other preset, not a standalone effect.
+ */
+export function computeTypographyRippleParticles(
+  grid: GridConfig,
+  wave: WaveConfig,
+  style: StyleConfig,
+  width: number,
+  height: number,
+  time: number,
+  audioSignal?: AudioSignal,
+  audioConfig?: AudioConfig
+): Particle[] {
+  const cfg: TypographyRippleConfig = { ...DEFAULT_TYPOGRAPHY_RIPPLE_CONFIG, ...(grid.typographyRipple || {}) };
+  const seed = wave.randomSeed || 42;
+  const cells = buildTypographyCells(cfg, style, width, height, seed);
+  const waveFrameCtx = createWaveFrameContext(width, height, time, wave, audioSignal, audioConfig);
+
+  const particles: Particle[] = [];
+
+  for (const cell of cells) {
+    calculateWave(cell.baseX, cell.baseY, width, height, time, wave, audioSignal, waveFrameCtx, sharedWaveRes, audioConfig);
+
+    const envelope = Math.max(0, Math.min(1.6, sharedWaveRes.value));
+    const currentX = cell.baseX + sharedWaveRes.displacementX;
+    const verticalPulse =
+      envelope * cfg.verticalPulseStrength * Math.sin(time * (wave.waveSpeed || 1.0) * 3.0 + cell.phase);
+    const currentY = cell.baseY + sharedWaveRes.displacementY + verticalPulse;
+
+    const blockScale = 1 + envelope * cfg.blockScaleAmount;
+
+    particles.push({
+      x: currentX,
+      y: currentY,
+      radius: (cfg.blockWidth * blockScale) / 2,
+      fillColor: cell.color,
+      opacity: 1.0,
+      shape: 'typo_block',
+      width: cfg.blockWidth * blockScale,
+      height: cfg.blockHeight * blockScale,
+      char: cell.char,
+      fontSize: cfg.fontSize * blockScale,
+      fontFamily: cfg.fontFamily,
+      glyphColor: cfg.textColor
+    });
+  }
+
+  return particles;
+}
+
 /**
  * Computes all particles for the halftone kinetic grid based on current parameters.
  * Canonical source of particle positions, sizes (particle.radius), colors, and geometry.
@@ -685,13 +890,21 @@ export function computeParticles(
   time: number = 0,
   parsedCustomSvgDoc?: Document | null,
   compositionMode: CompositionMode = 'full_molecule',
-  audioSignal?: AudioSignal
+  audioSignal?: AudioSignal,
+  audioConfig?: AudioConfig
 ): Particle[] {
   // Modular Signal Field (Breaking Signal redesign) uses its own dedicated point-generation path —
   // staggered vertical strips, not the text-masked grid below. Gated on compositionMode so no other
   // preset (which never sets it) is affected.
   if (compositionMode === 'modular_signal_field') {
     return computeModularStripParticles(grid, wave, style, width, height, time);
+  }
+
+  // Typography Radial Ripple (Breaking Signal redesign #2) uses its own dedicated point-generation
+  // path — paragraph text laid out as character cells, displaced by the shared wave engine below —
+  // rather than the text-masked grid. Gated on compositionMode so no other preset is affected.
+  if (compositionMode === 'typography_ripple') {
+    return computeTypographyRippleParticles(grid, wave, style, width, height, time, audioSignal, audioConfig);
   }
 
   // 3D Radial Wave mode uses its own dedicated point-generation path (concentric rings projected
@@ -744,16 +957,37 @@ export function computeParticles(
   const seed = wave.randomSeed || 42;
 
   // Pre-calculate frame-wide wave constants
-  const waveFrameCtx = createWaveFrameContext(width, height, time, wave, audioSignal);
+  const waveFrameCtx = createWaveFrameContext(width, height, time, wave, audioSignal, audioConfig);
 
   // Pre-calculate color gradient LUT if gradient is enabled
   const gradientLUT = style.enableColorGradient && !style.uniformColorBrightness ? getGradientLUT(dotColor, gradientColor) : null;
+
+  // Audio Reactivity — Parameter Mapping Matrix targets that apply per-particle (item 7): computed
+  // ONCE per frame (bass/mid/high/beatPulse/overallEnergy don't vary per point), not per particle.
+  let audioSizeDelta = 0;
+  let audioOpacityDelta = 0;
+  const audioReactiveActive = !!(audioConfig?.enabled && audioSignal?.isActive);
+  if (audioReactiveActive && audioConfig?.mappings) {
+    for (const m of audioConfig.mappings) {
+      let sourceVal = 0;
+      switch (m.source) {
+        case 'bass': sourceVal = audioSignal!.bass; break;
+        case 'mid': sourceVal = audioSignal!.mid; break;
+        case 'high': sourceVal = audioSignal!.high; break;
+        case 'overallEnergy': sourceVal = audioSignal!.rmsVolume; break;
+        case 'beatPulse': sourceVal = audioSignal!.beatPulse ?? 0; break;
+      }
+      const delta = sourceVal * m.amount;
+      if (m.target === 'particleSize') audioSizeDelta += delta * 0.8;
+      else if (m.target === 'particleOpacity') audioOpacityDelta += delta * 0.7;
+    }
+  }
 
   let particleIndex = 0;
 
   for (let pi = 0; pi < points.length; pi++) {
     const { x0, y0, rowIdx, colIdx } = points[pi];
-    calculateWave(x0, y0, width, height, time, wave, audioSignal, waveFrameCtx, sharedWaveRes);
+    calculateWave(x0, y0, width, height, time, wave, audioSignal, waveFrameCtx, sharedWaveRes, audioConfig);
 
     let x = x0;
     let y = y0;
@@ -798,13 +1032,19 @@ export function computeParticles(
     }
 
     const waveBoost = wave.waveAmplitude * sharedWaveRes.value * 0.85;
-    const finalRadius = Math.max(0.0, baseRadius * (1.0 + waveBoost));
+    let finalRadius = Math.max(0.0, baseRadius * (1.0 + waveBoost));
+    if (audioSizeDelta !== 0) {
+      finalRadius = Math.max(0.0, finalRadius * (1.0 + audioSizeDelta));
+    }
 
     if (finalRadius < 0.2) {
       continue;
     }
 
-    const opacity = style.uniformColorBrightness ? 1.0 : Math.min(1.0, Math.max(0.05, 0.35 + sharedWaveRes.value * 0.65));
+    let opacity = style.uniformColorBrightness ? 1.0 : Math.min(1.0, Math.max(0.05, 0.35 + sharedWaveRes.value * 0.65));
+    if (audioOpacityDelta !== 0) {
+      opacity = Math.min(1.0, Math.max(0.05, opacity + audioOpacityDelta));
+    }
 
     let fillColor = dotColor;
     if (style.enableMultiColor && style.multiColorPalette && style.multiColorPalette.length > 0) {
@@ -826,6 +1066,26 @@ export function computeParticles(
     } else if (gradientLUT) {
       const lutIdx = (sharedWaveRes.value * 255) | 0;
       fillColor = gradientLUT[lutIdx < 0 ? 0 : lutIdx > 255 ? 255 : lutIdx];
+    }
+
+    // Audio Reactivity — optional dynamic color shift + beat glow (item 8). OFF by default; the
+    // user's chosen palette/colors are never forcibly replaced unless they explicitly enable this.
+    if (audioReactiveActive && audioConfig?.audioColorShift) {
+      const lvl = Math.max(0, Math.min(1, sharedWaveRes.value));
+      if (audioConfig.audioColorShiftMode === 'p5_inverted') {
+        const targetHex = rgbToHex(255 - lvl * 242, 255 - lvl * 242, Math.min(255, 51 + lvl * 204));
+        fillColor = mixHexColors(fillColor, targetHex, 0.75);
+      } else if (audioConfig.audioColorShiftMode === 'spectrum_shift') {
+        const hue = (lvl * 0.8 + time * 0.15) % 1;
+        const targetHex = hslToHex(hue, 0.75, 0.6);
+        fillColor = mixHexColors(fillColor, targetHex, 0.8);
+      } else {
+        // 'accent_glow' (default): morph toward the theme's accent color
+        fillColor = mixHexColors(fillColor, style.accentColor, lvl * 0.9);
+      }
+    }
+    if (audioReactiveActive && audioConfig?.audioBeatGlow && (audioSignal?.beatPulse ?? 0) > 0.01) {
+      fillColor = mixHexColors(fillColor, style.accentColor, Math.min(0.6, (audioSignal!.beatPulse ?? 0) * 0.4));
     }
 
     // Determine Custom SVG layer assignment
@@ -1457,6 +1717,24 @@ export function renderParticleToCanvas(ctx: CanvasRenderingContext2D, particle: 
     ctx.beginPath();
     ctx.rect(x - w / 2, y - h / 2, w, h);
     ctx.fill();
+  } else if (shape === 'typo_block') {
+    // Typography Radial Ripple: a colored character cell (flat block) with its glyph drawn on top —
+    // the pairing that gives Breaking Signal its "colored typewriter block" look.
+    const w = particle.width ?? radius * 2;
+    const h = particle.height ?? radius * 4;
+    ctx.fillStyle = fillColor;
+    ctx.beginPath();
+    ctx.rect(x - w / 2, y - h / 2, w, h);
+    ctx.fill();
+
+    if (particle.char) {
+      const fSize = particle.fontSize || Math.max(8, h * 0.75);
+      ctx.font = `${fSize}px "${particle.fontFamily || 'Times New Roman'}", serif`;
+      ctx.fillStyle = particle.glyphColor || '#FFFFFF';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(particle.char, x, y - h * 0.03);
+    }
   } else if (shape === 'custom_svg' && particle.customLayers && particle.assignedLayerIndices) {
     for (const idx of particle.assignedLayerIndices) {
       const layer = particle.customLayers[idx];
@@ -1697,6 +1975,32 @@ export function renderParticleToSVG(
     rect.setAttribute('fill', fillColor);
     rect.setAttribute('opacity', opacity.toFixed(2));
     svgGroup.appendChild(rect);
+  } else if (shape === 'typo_block') {
+    const w = particle.width ?? radius * 2;
+    const h = particle.height ?? radius * 4;
+    const rect = svgDoc.createElementNS(SVG_NS, 'rect');
+    rect.setAttribute('x', (x - w / 2).toFixed(2));
+    rect.setAttribute('y', (y - h / 2).toFixed(2));
+    rect.setAttribute('width', w.toFixed(2));
+    rect.setAttribute('height', h.toFixed(2));
+    rect.setAttribute('fill', fillColor);
+    rect.setAttribute('opacity', opacity.toFixed(2));
+    svgGroup.appendChild(rect);
+
+    if (particle.char) {
+      const fSize = particle.fontSize || Math.max(8, h * 0.75);
+      const textEl = svgDoc.createElementNS(SVG_NS, 'text');
+      textEl.setAttribute('x', x.toFixed(2));
+      textEl.setAttribute('y', (y - h * 0.03).toFixed(2));
+      textEl.setAttribute('font-family', `${particle.fontFamily || 'Times New Roman'}, serif`);
+      textEl.setAttribute('font-size', fSize.toFixed(1));
+      textEl.setAttribute('fill', particle.glyphColor || '#FFFFFF');
+      textEl.setAttribute('opacity', opacity.toFixed(2));
+      textEl.setAttribute('text-anchor', 'middle');
+      textEl.setAttribute('dominant-baseline', 'central');
+      textEl.textContent = particle.char;
+      svgGroup.appendChild(textEl);
+    }
   } else if (shape === 'custom_svg' && particle.customLayers && particle.assignedLayerIndices) {
     for (const idx of particle.assignedLayerIndices) {
       const layer = particle.customLayers[idx];
@@ -1823,6 +2127,36 @@ export function renderParticleToSVG(
     labelEl.textContent = particle.label;
     svgGroup.appendChild(labelEl);
   }
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  const rr = Math.max(0, Math.min(255, Math.round(r)));
+  const gg = Math.max(0, Math.min(255, Math.round(g)));
+  const bb = Math.max(0, Math.min(255, Math.round(b)));
+  return `#${((1 << 24) + (rr << 16) + (gg << 8) + bb).toString(16).slice(1)}`;
+}
+
+/** Minimal HSL→hex conversion for the audio spectrum color-shift mode. */
+function hslToHex(h: number, s: number, l: number): string {
+  const hue2rgb = (p: number, q: number, t: number) => {
+    let tt = t;
+    if (tt < 0) tt += 1;
+    if (tt > 1) tt -= 1;
+    if (tt < 1 / 6) return p + (q - p) * 6 * tt;
+    if (tt < 1 / 2) return q;
+    if (tt < 2 / 3) return p + (q - p) * (2 / 3 - tt) * 6;
+    return p;
+  };
+  if (s === 0) {
+    const v = l * 255;
+    return rgbToHex(v, v, v);
+  }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const r = hue2rgb(p, q, h + 1 / 3);
+  const g = hue2rgb(p, q, h);
+  const b = hue2rgb(p, q, h - 1 / 3);
+  return rgbToHex(r * 255, g * 255, b * 255);
 }
 
 function mixHexColors(color1: string, color2: string, weight: number): string {

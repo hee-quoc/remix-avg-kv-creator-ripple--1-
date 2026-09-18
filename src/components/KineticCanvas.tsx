@@ -24,6 +24,34 @@ interface KineticCanvasProps {
   onFpsUpdate?: (fps: number, dotCount: number) => void;
 }
 
+/**
+ * Builds the lightweight per-call audio signal for exports from the analyzer's cached last snapshot
+ * (never triggers a fresh `.update()` — that only ever runs once per frame from the render loop;
+ * see item 11). Returns undefined signal/config when Audio Reactivity is off, so export output
+ * matches the live preview exactly.
+ */
+function buildExportAudioSignal(state: RenderState) {
+  const enabled = !!state.audio?.enabled;
+  const data = audioAnalyzerInstance.getLastAnalysis();
+  if (!enabled || !data) {
+    return { audioSignal: undefined, audioConfigForWave: undefined };
+  }
+  return {
+    audioSignal: {
+      rmsVolume: data.overallEnergy,
+      bass: data.bass,
+      mid: data.mid,
+      high: data.high,
+      isActive: data.isPlaying,
+      beatPulse: data.beatPulse,
+      smoothedBeatIntensity: data.smoothedBeatIntensity,
+      secondWavePhase: data.secondWavePhase,
+      volumeHistory: data.volumeHistory
+    },
+    audioConfigForWave: state.audio
+  };
+}
+
 export const KineticCanvas: React.FC<KineticCanvasProps> = ({
   state,
   onUpdateState,
@@ -256,15 +284,36 @@ export const KineticCanvas: React.FC<KineticCanvasProps> = ({
 
       const frameStartTime = performance.now();
 
-      // Sample real-time audio analysis if active
-      const audioSignal = currentState.audioActive ? audioAnalyzerInstance.getAnalysis() : undefined;
+      // Sample real-time audio analysis exactly once per frame from this single render loop (the
+      // only place `.update()` is called — item 11: avoid duplicate analysis loops). Runs whenever
+      // a source is loaded so meters/transport stay live even if Audio Reactivity is toggled off;
+      // the resulting signal is only fed into the wave engine when `audio.enabled` is true.
+      const audioData = audioAnalyzerInstance.hasAudio() ? audioAnalyzerInstance.update(currentState.audio) : undefined;
+      const audioReactivityOn = !!currentState.audio?.enabled;
+      const audioSignal = audioReactivityOn && audioData
+        ? {
+            rmsVolume: audioData.overallEnergy,
+            bass: audioData.bass,
+            mid: audioData.mid,
+            high: audioData.high,
+            isActive: audioData.isPlaying,
+            beatPulse: audioData.beatPulse,
+            smoothedBeatIntensity: audioData.smoothedBeatIntensity,
+            secondWavePhase: audioData.secondWavePhase,
+            volumeHistory: audioData.volumeHistory
+          }
+        : undefined;
+      const audioConfigForWave = audioReactivityOn ? currentState.audio : undefined;
 
       // Text Layer A (Effect Text / generative molecule layer) visibility — defaults to true so
       // every existing preset's default appearance is unchanged unless the user hides it explicitly.
-      // Modular Signal Field is exempt: its "particles" are the strip blocks themselves (the mode's
-      // primary visual), not molecule-formed typography, so this flag doesn't gate them.
+      // Modular Signal Field and Typography Radial Ripple are exempt: their "particles" ARE the
+      // primary visual content (strip blocks / character blocks), not molecule-formed typography, so
+      // this flag doesn't gate them.
       const showEffectText =
-        currentState.showEffectText !== false || currentState.compositionMode === 'modular_signal_field';
+        currentState.showEffectText !== false ||
+        currentState.compositionMode === 'modular_signal_field' ||
+        currentState.compositionMode === 'typography_ripple';
 
       // Compute canonical particles in 1920x1080 logical coordinate space
       const particles = showEffectText
@@ -279,7 +328,8 @@ export const KineticCanvas: React.FC<KineticCanvasProps> = ({
             timeRef.current,
             parsedCustomSvgDocRef.current,
             currentState.compositionMode,
-            audioSignal
+            audioSignal,
+            audioConfigForWave
           )
         : [];
 
@@ -568,8 +618,11 @@ export const KineticCanvas: React.FC<KineticCanvasProps> = ({
     if (!sdfData) return;
 
     // Guaranteed full-quality calculation independent of preview resolution
-    const audioSignal = state.audioActive ? audioAnalyzerInstance.getAnalysis() : undefined;
-    const showEffectText = state.showEffectText !== false || state.compositionMode === 'modular_signal_field';
+    const { audioSignal, audioConfigForWave } = buildExportAudioSignal(state);
+    const showEffectText =
+      state.showEffectText !== false ||
+      state.compositionMode === 'modular_signal_field' ||
+      state.compositionMode === 'typography_ripple';
     const fullQualityParticles = showEffectText
       ? computeParticles(
           sdfData,
@@ -582,7 +635,8 @@ export const KineticCanvas: React.FC<KineticCanvasProps> = ({
           timeRef.current,
           parsedCustomSvgDocRef.current,
           state.compositionMode,
-          audioSignal
+          audioSignal,
+          audioConfigForWave
         )
       : [];
 
@@ -632,8 +686,12 @@ export const KineticCanvas: React.FC<KineticCanvasProps> = ({
 
   const handleExportSVG = () => {
     if (!sdfData) return;
-    const audioSignal = state.audioActive ? audioAnalyzerInstance.getAnalysis() : undefined;
-    const fullQualityParticles = (state.showEffectText !== false || state.compositionMode === 'modular_signal_field')
+    const { audioSignal, audioConfigForWave } = buildExportAudioSignal(state);
+    const fullQualityParticles = (
+      state.showEffectText !== false ||
+      state.compositionMode === 'modular_signal_field' ||
+      state.compositionMode === 'typography_ripple'
+    )
       ? computeParticles(
           sdfData,
           state.grid,
@@ -645,7 +703,8 @@ export const KineticCanvas: React.FC<KineticCanvasProps> = ({
           timeRef.current,
           parsedCustomSvgDocRef.current,
           state.compositionMode,
-          audioSignal
+          audioSignal,
+          audioConfigForWave
         )
       : [];
     const svgStr = generateSVGFromParticles(fullQualityParticles, state, DESIGN_WIDTH, DESIGN_HEIGHT);
@@ -660,13 +719,21 @@ export const KineticCanvas: React.FC<KineticCanvasProps> = ({
     setVideoExportProgress(0);
 
     try {
-      const videoBlob = await recordCanvasVideo(canvas, {
+      const audioEnabled = !!state.audio?.enabled && audioAnalyzerInstance.hasAudio();
+      const audioTrack = audioEnabled ? audioAnalyzerInstance.getExportAudioTrack() : null;
+      const { blob: videoBlob, hasAudio } = await recordCanvasVideo(canvas, {
         durationSeconds: durationSec,
         fps: 60,
         preferTransparent: state.transparentBg,
-        onProgress: (p) => setVideoExportProgress(p)
+        onProgress: (p) => setVideoExportProgress(p),
+        audioTrack
       });
       downloadVideoBlob(videoBlob, `halftone-kinetic-${Date.now()}.mp4`);
+      // Report the limitation clearly rather than silently shipping a silent file when the user
+      // had Audio Reactivity + a live source on but the browser couldn't attach the track (item 13).
+      if (audioEnabled && !hasAudio) {
+        alert('Video exported without audio: this browser could not attach the live audio track to the recording. The visual ripple is still audio-reactive — only the exported file\'s soundtrack is missing.');
+      }
     } catch (err) {
       console.error('Video export error:', err);
       alert('Video export error: ' + (err as Error).message);

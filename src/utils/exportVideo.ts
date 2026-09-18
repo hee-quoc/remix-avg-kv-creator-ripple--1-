@@ -7,16 +7,39 @@ export interface VideoExportOptions {
   fps: number;
   preferTransparent?: boolean;
   onProgress?: (progress: number) => void;
+  /**
+   * Live audio track to mux into the recording (from AudioAnalyzerEngine.getExportAudioTrack()).
+   * `canvas.captureStream()` only ever captures video — it never includes audio on its own — so
+   * this must be added explicitly. Omit/undefined when no audio source is active; the export then
+   * proceeds as video-only and `VideoExportResult.hasAudio` reports that honestly (item 13) rather
+   * than silently producing a file that claims to have audio it doesn't.
+   */
+  audioTrack?: MediaStreamTrack | null;
+}
+
+export interface VideoExportResult {
+  blob: Blob;
+  hasAudio: boolean;
 }
 
 export function recordCanvasVideo(
   canvas: HTMLCanvasElement,
   options: VideoExportOptions
-): Promise<Blob> {
+): Promise<VideoExportResult> {
   return new Promise((resolve, reject) => {
-    const { durationSeconds, fps, preferTransparent, onProgress } = options;
+    const { durationSeconds, fps, preferTransparent, onProgress, audioTrack } = options;
 
     const stream = canvas.captureStream(fps);
+    let hasAudio = false;
+    if (audioTrack) {
+      try {
+        stream.addTrack(audioTrack);
+        hasAudio = true;
+      } catch (err) {
+        console.warn('Could not attach audio track to video export — recording video only:', err);
+        hasAudio = false;
+      }
+    }
 
     // Try supported mime types
     const mimeTypes = preferTransparent
@@ -79,7 +102,7 @@ export function recordCanvasVideo(
     mediaRecorder.onstop = () => {
       clearInterval(progressInterval);
       const blob = new Blob(chunks, { type: selectedMimeType });
-      resolve(blob);
+      resolve({ blob, hasAudio });
     };
 
     mediaRecorder.onerror = (err) => {

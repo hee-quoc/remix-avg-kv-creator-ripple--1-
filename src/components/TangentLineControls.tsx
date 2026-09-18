@@ -2,12 +2,19 @@ import React from 'react';
 import { RenderState } from '../types';
 import { Sliders, Waves, Compass, Activity } from 'lucide-react';
 
-interface BreakingSignalControlsProps {
+interface TangentLineControlsProps {
   state: RenderState;
   onUpdateState: (updater: (prev: RenderState) => RenderState) => void;
 }
 
-export const BreakingSignalControls: React.FC<BreakingSignalControlsProps> = ({
+/**
+ * Controls for the 'tangent_line' dot shape (directional line molecule material). Previously named
+ * "BreakingSignalControls" from when the Breaking Signal preset used this shape — that preset has
+ * since been redesigned twice (Modular Signal Field, then Typography Radial Ripple) and no longer
+ * uses tangent lines at all, so the old name/title was misleading to anyone selecting this shape
+ * manually via the GRID tab. Renamed to describe what it actually controls.
+ */
+export const TangentLineControls: React.FC<TangentLineControlsProps> = ({
   state,
   onUpdateState
 }) => {
@@ -22,7 +29,7 @@ export const BreakingSignalControls: React.FC<BreakingSignalControlsProps> = ({
         <div className="flex items-center space-x-2">
           <Activity className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
           <span className="text-[11px] font-bold text-white uppercase tracking-wider">
-            BREAKING SIGNAL LINE CONTROLS
+            TANGENT LINE CONTROLS
           </span>
         </div>
         <span className="text-[9px] text-rose-400 font-bold bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/30">

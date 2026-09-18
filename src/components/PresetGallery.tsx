@@ -1,34 +1,43 @@
 import React, { useState } from 'react';
 import { RenderState } from '../types';
 import { PRESETS, PresetCategory } from '../data/presets';
-import { Sparkles, Check, Radio } from 'lucide-react';
+import { FLIP_DISC_PRESETS } from '../flipDisc/presets';
+import { Sparkles, Check, Radio, Flower2 } from 'lucide-react';
 
 interface PresetGalleryProps {
   state: RenderState;
   onSelectPreset: (presetId: string) => void;
+  onSelectFlipDiscPreset?: (presetId: string) => void;
 }
 
 const CATEGORIES: { id: PresetCategory | 'ALL'; label: string }[] = [
-  { id: 'ALL', label: 'ALL (8)' },
+  { id: 'ALL', label: 'ALL' },
   { id: 'News', label: 'NEWS' },
   { id: 'Technology', label: 'TECH' },
   { id: 'Finance', label: 'FINANCE' },
   { id: 'Automotive', label: 'AUTO' },
   { id: 'Entertainment', label: 'ENTERTAINMENT' },
   { id: 'Sports', label: 'SPORTS' },
-  { id: 'Culture', label: 'CULTURE' }
+  { id: 'Culture', label: 'CULTURE' },
+  { id: 'Children', label: 'CHILDREN' }
 ];
 
-export const PresetGallery: React.FC<PresetGalleryProps> = ({ state, onSelectPreset }) => {
+export const PresetGallery: React.FC<PresetGalleryProps> = ({ state, onSelectPreset, onSelectFlipDiscPreset }) => {
   const [selectedCategory, setSelectedCategory] = useState<PresetCategory | 'ALL'>('ALL');
 
   const filteredPresets = selectedCategory === 'ALL'
     ? PRESETS
+    : selectedCategory === 'Children'
+    ? []
     : PRESETS.filter(
         (p) =>
           p.category === selectedCategory ||
           p.tags?.some((t) => t.toLowerCase() === selectedCategory.toLowerCase())
       );
+
+  // Flip Disc 3D — a separate, self-contained "Children" engine (src/flipDisc/), shown alongside the
+  // normal RenderState-based preset cards but routed through onSelectFlipDiscPreset instead.
+  const showFlipDiscCards = selectedCategory === 'ALL' || selectedCategory === 'Children';
 
   return (
     <div className="space-y-4 font-mono">
@@ -41,7 +50,7 @@ export const PresetGallery: React.FC<PresetGalleryProps> = ({ state, onSelectPre
           </span>
         </div>
         <span className="text-[10px] text-[#888] font-mono">
-          8 PRESETS / 6 CATEGORIES
+          {PRESETS.length + FLIP_DISC_PRESETS.length} PRESETS / {CATEGORIES.length - 1} CATEGORIES
         </span>
       </div>
 
@@ -49,7 +58,9 @@ export const PresetGallery: React.FC<PresetGalleryProps> = ({ state, onSelectPre
       <div className="flex flex-wrap gap-1">
         {CATEGORIES.map((cat) => {
           const count = cat.id === 'ALL'
-            ? PRESETS.length
+            ? PRESETS.length + FLIP_DISC_PRESETS.length
+            : cat.id === 'Children'
+            ? FLIP_DISC_PRESETS.length
             : PRESETS.filter((p) => p.category === cat.id).length;
 
           const isActive = selectedCategory === cat.id;
@@ -160,6 +171,53 @@ export const PresetGallery: React.FC<PresetGalleryProps> = ({ state, onSelectPre
             </div>
           );
         })}
+
+        {/* Flip Disc 3D — separate "Children" engine (src/flipDisc/), routed through
+            onSelectFlipDiscPreset instead of the RenderState preset pipeline above. */}
+        {showFlipDiscCards &&
+          onSelectFlipDiscPreset &&
+          FLIP_DISC_PRESETS.map((preset) => (
+            <div
+              key={preset.id}
+              onClick={() => onSelectFlipDiscPreset(preset.id)}
+              className="p-3 rounded-lg border border-pink-500/30 bg-[#160e18] hover:border-pink-500/60 hover:bg-[#1d1220] transition-all cursor-pointer text-left relative overflow-hidden group"
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center space-x-2">
+                  <span className="text-[9px] uppercase font-mono px-2 py-0.5 rounded bg-pink-500/15 text-pink-300 border border-pink-500/30 font-bold flex items-center gap-1">
+                    <Flower2 className="w-2.5 h-2.5" /> Children
+                  </span>
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/30">
+                    FLIP DISC 3D
+                  </span>
+                </div>
+                <div className="flex items-center space-x-1.5">
+                  <div className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: preset.config.frontColor }} />
+                  <div className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: preset.config.backColor }} />
+                  <div className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: preset.config.sideColor }} />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-white group-hover:text-pink-300">
+                  {preset.name}
+                </h4>
+              </div>
+
+              <p className="text-[10px] text-[#999] leading-relaxed mt-1 font-sans line-clamp-2">
+                {preset.description}
+              </p>
+
+              <div className="mt-2.5 pt-2 border-t border-[#1f1f26] flex flex-wrap gap-1 text-[9px] text-[#777]">
+                <span className="bg-[#16161c] px-1.5 py-0.5 rounded border border-[#2a2a35] text-[#bbb]">
+                  Shape: {preset.config.shape}
+                </span>
+                <span className="bg-[#16161c] px-1.5 py-0.5 rounded border border-[#2a2a35] text-[#bbb]">
+                  Material: {preset.config.material}
+                </span>
+              </div>
+            </div>
+          ))}
       </div>
     </div>
   );

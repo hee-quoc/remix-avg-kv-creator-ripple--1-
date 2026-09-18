@@ -24,6 +24,7 @@ interface HeaderBarProps {
   onToggleControls: () => void;
   isControlsOpen: boolean;
   onSelectPreset: (presetId: string) => void;
+  onSelectFlipDiscPreset?: (presetId: string) => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -33,7 +34,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   dotCount,
   onToggleControls,
   isControlsOpen,
-  onSelectPreset
+  onSelectPreset,
+  onSelectFlipDiscPreset
 }) => {
   const triggerExport = (id: string) => {
     const el = document.getElementById(id);
@@ -67,7 +69,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 ? 'Collage'
                 : 'Masked'}
             </span>
-            {state.audioActive && (
+            {state.audio?.enabled && (
               <>
                 <span className="text-slate-600">|</span>
                 <span className="text-emerald-400 font-semibold uppercase flex items-center gap-1">
@@ -229,6 +231,20 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   </button>
                 );
               })}
+              {onSelectFlipDiscPreset && (
+                <button
+                  onClick={() => onSelectFlipDiscPreset('playful_bloom')}
+                  className="w-full text-left px-2 py-1.5 rounded transition-colors text-xs font-mono flex items-center justify-between mt-1 border-t border-slate-800 pt-2 text-pink-300 hover:bg-slate-800/60"
+                >
+                  <div className="min-w-0 pr-2">
+                    <div className="flex items-center space-x-1.5">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: '#F49ACD' }} />
+                      <span className="truncate">07. Playful Bloom</span>
+                    </div>
+                    <span className="text-[9px] text-slate-500 block truncate pl-3.5">Children — Flip Disc 3D</span>
+                  </div>
+                </button>
+              )}
             </div>
           </div>
         </div>

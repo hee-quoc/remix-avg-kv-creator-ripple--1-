@@ -23,6 +23,26 @@ export type WaveType = 'sine' | 'pulse' | 'square' | 'gaussian' | 'burst';
 // Advanced Frequency Control — independent frequency mappings (generic, applies to all wave patterns)
 export type FrequencyMappingMode = 'spatial_only' | 'thickness_only' | 'motion_only' | 'combined';
 
+// Dynamic Visual Thickness (2D) — ported from the 3D Radial Wave's per-ring thickness modulation
+// (see Radial3DConfig.thicknessAnimEnabled/minThickness/.../thicknessRandomness below) and adapted to
+// the existing 2D concentric wavefront system so each ring/wave can carry its own independently
+// animated stroke width, instead of a single global amplitude. Additive-only: `enabled` defaults to
+// false for every existing preset, so this has zero effect until a user explicitly turns it on.
+export type ThicknessBehaviorMode = 'uniform' | 'radial_gradient' | 'random' | 'animated';
+
+export interface DynamicThicknessConfig {
+  enabled: boolean; // default false — off reproduces today's exact wave thickness behavior
+  mode: ThicknessBehaviorMode; // default 'animated'
+  baseThickness: number; // multiplier used directly by 'uniform' mode, default 1.0
+  minThickness: number; // multiplier, default 0.4
+  maxThickness: number; // multiplier, default 1.8
+  thicknessFrequency: number; // how quickly thickness varies ring-to-ring, default 1.0 (independent of Spatial Frequency)
+  animSpeed: number; // time multiplier for 'animated' mode, default 1.0
+  phaseOffset: number; // radians, per-ring phase spread, default 0.6
+  randomness: number; // 0..1, per-ring jitter; combinable with 'animated' or standalone with 'random'
+  audioThicknessInfluence: number; // 0..1, smooth bass-driven thickness boost on existing rings, default 0
+}
+
 // 3D Radial Wave — material system (reuses the existing particle/SVG shape renderers)
 export type RadialWaveMaterial = 'line' | 'dot_matrix' | 'ascii' | 'diamond' | 'custom_svg' | 'stitch';
 
@@ -74,8 +94,8 @@ export type ThemeId =
 export type MaskMode = 'text' | 'shape' | 'svg_mask';
 export type ObjectShapeType = 'circle' | 'square' | 'ring' | 'star' | 'heart' | 'hexagon' | 'diamond' | 'shield';
 
-export type CompositionMode = 'full_molecule' | 'molecule_wave_only' | 'editorial_collage' | 'modular_signal_field';
-export type PresetCategory = 'News' | 'Technology' | 'Finance' | 'Automotive' | 'Entertainment' | 'Sports' | 'Culture';
+export type CompositionMode = 'full_molecule' | 'molecule_wave_only' | 'editorial_collage' | 'modular_signal_field' | 'typography_ripple';
+export type PresetCategory = 'News' | 'Technology' | 'Finance' | 'Automotive' | 'Entertainment' | 'Sports' | 'Culture' | 'Children';
 
 export type VisualStyleId =
   | 'modular_pixel'
@@ -167,6 +187,8 @@ export interface GridConfig {
   magneticWeight?: number; // default 4
   // Modular Signal Field (Breaking Signal redesign) parameters — used when dotShape === 'modular_strip'
   modularStrip?: ModularStripConfig;
+  // Typography Radial Ripple (Breaking Signal redesign #2) — used when compositionMode === 'typography_ripple'
+  typographyRipple?: TypographyRippleConfig;
 }
 
 /**
@@ -198,6 +220,26 @@ export interface ModularStripConfig {
 }
 
 export type StitchAngleMode = 'diagonal_sashiko' | 'cross_stitch' | 'contour_flow' | 'alternating_weave';
+
+/**
+ * Typography Radial Ripple (Breaking Signal redesign #2): paragraph text laid out as individual
+ * character blocks (colored cell + glyph on top), displaced by the SAME existing wave/ripple engine
+ * (wave.ts calculateWave — circular/pulse/flow) rather than a bespoke motion system. Text content and
+ * character colors (via style.multiColorPalette below) are both user-editable.
+ */
+export interface TypographyRippleConfig {
+  text: string; // paragraph(s), blank line ("\n\n") = paragraph break
+  fontFamily: string;
+  fontSize: number; // glyph size in px
+  textColor: string; // glyph color drawn on top of each colored block
+  blockWidth: number; // px, fixed per-character cell width (monospace-style layout, like the reference)
+  blockHeight: number; // px, colored block height
+  lineHeight: number; // px, vertical spacing between wrapped lines
+  marginX: number; // px, left/right margin used for word-wrap width
+  paragraphGap: number; // px, extra vertical gap between paragraphs
+  verticalPulseStrength: number; // px, extra vertical bounce riding the ripple envelope
+  blockScaleAmount: number; // 0..1, how much each block scales up as the ripple passes through it
+}
 
 export interface WaveConfig {
   mode: WaveMode; // 'stable' or 'flow'
@@ -239,16 +281,13 @@ export interface WaveConfig {
   // continues to only drive spatial distribution unless a user explicitly opts into Thickness/
   // Motion/Combined mapping or raises the new Thickness/Motion systems below.
   frequencyMapping?: FrequencyMappingMode; // default 'spatial_only'
-  freqThicknessInfluence?: number; // 0..1, how much the master Frequency also drives Thickness Frequency
+  // freqThicknessInfluence now drives the ring-based Dynamic Visual Thickness system's frequency
+  // (WaveConfig.dynamicThickness — see DynamicThicknessControls.tsx) instead of a separate per-point
+  // thickness system. The two were consolidated: they controlled visually near-identical behavior
+  // (a min/max/frequency/speed/randomness thickness oscillation) from two different panels in the
+  // same WAVE tab, which read as a confusing duplicate rather than two distinct features.
+  freqThicknessInfluence?: number; // 0..1, how much the master Frequency also drives Dynamic Thickness's frequency
   freqMotionInfluence?: number; // 0..1, how much the master Frequency also drives Motion Frequency
-  // Thickness Frequency system (independent manual thickness animation)
-  waveThicknessAnimEnabled?: boolean; // default false (off = today's constant thickness behavior)
-  waveThicknessMin?: number; // multiplier, default 0.5
-  waveThicknessMax?: number; // multiplier, default 1.5
-  waveThicknessFrequency?: number; // default 1.0
-  waveThicknessVariation?: number; // 0..1, per-point phase jitter, default 0
-  waveThicknessAnimSpeed?: number; // default 1.0
-  waveThicknessRandomness?: number; // 0..1, default 0
   // Motion Frequency system (independent per-wave organic phase motion)
   waveMotionFrequency?: number; // default 1.0
   waveMotionSpeed?: number; // default 1.0
@@ -258,6 +297,10 @@ export interface WaveConfig {
 
   // 3D Radial Wave mode configuration (only used when pattern === 'radial_3d')
   radial3D?: Radial3DConfig;
+
+  // Dynamic Visual Thickness (2D) — applies to circular/linear/spiral/interference/market_chart
+  // patterns only; radial_3d keeps using its own dedicated Radial3DConfig thickness system.
+  dynamicThickness?: DynamicThicknessConfig;
 }
 
 export interface StyleConfig {
@@ -377,6 +420,127 @@ export interface KVLayoutConfig {
   };
 }
 
+// ============================================================================
+// AUDIO REACTIVITY — ported from AVG SoundText Ripple's audio engine and adapted
+// to the existing Canvas2D wave/particle architecture (see utils/audioAnalyzer.ts,
+// utils/wave.ts, components/AudioReactivityControls.tsx).
+// ============================================================================
+
+export interface AudioMappingConfig {
+  source: 'bass' | 'mid' | 'high' | 'overallEnergy' | 'beatPulse';
+  target:
+    | 'waveAmplitude'
+    | 'waveSpeed'
+    | 'waveFrequency'
+    | 'waveThickness'
+    | 'radialDisplacement'
+    | 'particleSize'
+    | 'particleOpacity'
+    | 'wavefrontScale'
+    | 'wavefrontThreshold';
+  amount: number; // 0..1 influence multiplier
+}
+
+export interface BeatRippleWave {
+  id: number;
+  radius: number;
+  strength: number;
+  speed: number;
+  width: number;
+  baseWidth?: number;
+  decay: number;
+  age: number;
+  originX?: number;
+  originY?: number;
+}
+
+export type RippleSequenceMode = 'single' | 'cascade' | 'alternate' | 'freq_bands' | 'second_wave';
+export type AudioColorShiftMode = 'p5_inverted' | 'accent_glow' | 'spectrum_shift';
+export type AudioSourceType = 'none' | 'mic' | 'synth' | 'file';
+export type SynthStyle = 'electro' | 'lofi' | 'techno';
+export type AudioRippleBand = 'overall' | 'bass' | 'mid' | 'beatPulse';
+
+export interface AudioConfig {
+  enabled: boolean; // Master Audio Reactivity toggle — OFF by default for every existing preset.
+  sensitivity: number;
+  smoothing: number;
+
+  // Beat Detection
+  beatDetectionEnabled: boolean;
+  beatSensitivity: number;
+  beatThreshold: number;
+  minBeatInterval: number; // ms
+  beatBoost: number;
+  beatDecay: number;
+
+  // Frequency Band Sensitivity
+  bassSensitivity: number;
+  midSensitivity: number;
+  highSensitivity: number;
+
+  // Beat Ripple / Sequence Engine
+  beatRippleEnabled: boolean;
+  beatRippleStrength: number;
+  beatRippleSpeed: number;
+  beatRippleWidth: number;
+  beatRippleDecay: number;
+  beatRippleSize: number;
+  beatRippleSequenceMode: RippleSequenceMode;
+  cascadeCount: number;
+  cascadeDelayMs: number;
+
+  // Continuous Music Ripple (volume-history travelling wavefront)
+  audioMusicRippleEnabled: boolean;
+  audioRippleSpeed: number;
+  audioRippleStrength: number;
+  audioRippleWavelength: number;
+  audioRippleHarmonics: number; // 1..3
+  audioRippleBand: AudioRippleBand;
+
+  // Second Wave — modulates the EXISTING rings (thickness + radial movement), never spawns new ones
+  secondWaveSpeed: number;
+  secondWaveFrequency: number;
+  secondWaveBaseThickness: number;
+  secondWaveThicknessInfluence: number; // 0..1
+  secondWaveMovementStrength: number; // 0..1
+  secondWaveBeatSensitivity: number;
+
+  // Audio-reactive color
+  audioColorShift: boolean;
+  audioColorShiftMode: AudioColorShiftMode;
+  audioBeatGlow: boolean;
+
+  // Playback
+  loopAudio: boolean;
+  synthStyle: SynthStyle;
+  synthBpm: number;
+
+  // Parameter mapping matrix
+  mappings: AudioMappingConfig[];
+}
+
+export interface AudioAnalysisData {
+  isPlaying: boolean;
+  isLooping: boolean;
+  currentTime: number;
+  duration: number;
+  fileName: string | null;
+  sourceType: AudioSourceType;
+  overallEnergy: number;
+  bass: number;
+  mid: number;
+  high: number;
+  beatDetected: boolean;
+  beatStrength: number;
+  beatPulse: number;
+  smoothedBeatIntensity: number;
+  secondWavePhase: number;
+  spectrum: Uint8Array;
+  waveform: Uint8Array;
+  activeRipples: BeatRippleWave[];
+  volumeHistory: Float32Array;
+}
+
 export interface RenderState {
   activePresetId?: string;
   previewQuality?: PreviewQuality;
@@ -391,12 +555,9 @@ export interface RenderState {
   isPlaying: boolean;
   time: number;
   transparentBg?: boolean;
+  audio: AudioConfig; // Comprehensive audio reactivity config — disabled by default for every preset.
+  /** @deprecated superseded by `audio.enabled` — kept only for the legacy "LIVE AUDIO" header badge */
   audioActive?: boolean;
-  audioSource?: 'none' | 'mic' | 'synth' | 'file';
-  audioLevel?: number;
-  audioBass?: number;
-  audioMid?: number;
-  audioTreble?: number;
 }
 
 export interface Preset {
@@ -417,5 +578,6 @@ export interface Preset {
     compositionMode?: CompositionMode;
     activeVisualStyle?: VisualStyleId;
     showEffectText?: boolean;
+    audio?: Partial<AudioConfig>;
   };
 }

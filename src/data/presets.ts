@@ -1,5 +1,7 @@
 import { Preset, RenderState, PresetCategory } from '../types';
 import { getDefaultKVLayout } from '../utils/kvLayoutTemplates';
+import { DEFAULT_AUDIO_CONFIG } from '../utils/audioAnalyzer';
+import { DEFAULT_DYNAMIC_THICKNESS_CONFIG } from '../utils/wave';
 export type { PresetCategory };
 
 export const BASE_DEFAULT_STATE: RenderState = {
@@ -60,7 +62,8 @@ export const BASE_DEFAULT_STATE: RenderState = {
     randomSeed: 42,
     soundReactivity: 0.0,
     soundSensitivity: 1.2,
-    soundReactionBand: 'all'
+    soundReactionBand: 'all',
+    dynamicThickness: { ...DEFAULT_DYNAMIC_THICKNESS_CONFIG }
   },
   style: {
     theme: 'dark_radar',
@@ -98,9 +101,10 @@ export const BASE_DEFAULT_STATE: RenderState = {
   kvLayout: { ...getDefaultKVLayout('without_ui', 'clean_focus'), enabled: false },
   isPlaying: true,
   time: 0,
-  audioActive: false,
-  audioSource: 'none',
-  audioLevel: 0
+  // Audio Reactivity is OFF by default for every existing preset (item 1/10) — enabling it is an
+  // explicit user action from the Audio Reactivity panel.
+  audio: { ...DEFAULT_AUDIO_CONFIG },
+  audioActive: false
 };
 
 export const PRESETS: Preset[] = [
@@ -182,13 +186,13 @@ export const PRESETS: Preset[] = [
     id: 'breaking_signal',
     name: '02. Breaking Signal',
     category: 'News',
-    description: 'Modular signal field of staggered vertical color-block strips scanning across layered editorial typography — fragmented transmission, not a particle burst.',
-    formulaDescription: 'Columns of variable-height strips animate with clustered, staggered phase offsets over an independent crisp text layer; strips interrupt and mask the type as they pass.',
-    compositionMode: 'modular_signal_field',
+    description: 'Typography radial ripple — editorial paragraph text broken into colored character blocks, rippling outward from the center in concentric waves.',
+    formulaDescription: 'Paragraph text word-wrapped into fixed-width character cells, each colored from the palette and displaced by the same circular/pulse ripple engine used across the app.',
+    compositionMode: 'typography_ripple',
     defaultVisualStyle: 'modular_pixel',
-    tags: ['Signal', 'Modular', 'Scanning', 'Editorial Motion'],
+    tags: ['Ripple', 'Typography', 'Editorial', 'Broadcast'],
     config: {
-      compositionMode: 'modular_signal_field',
+      compositionMode: 'typography_ripple',
       activeVisualStyle: 'modular_pixel',
       showEffectText: false,
       font: {
@@ -206,42 +210,36 @@ export const PRESETS: Preset[] = [
         density: 10,
         minRadius: 1.5,
         maxRadius: 7.0,
-        dotShape: 'modular_strip',
+        dotShape: 'circle',
         sdfThreshold: 0.5,
         sdfSoftness: 0.75,
         hideBackgroundDots: false,
-        modularStrip: {
-          barWidth: 30,
-          heightMin: 36,
-          heightMax: 210,
-          density: 9,
-          spacing: 5,
-          columnCount: 24,
-          verticalOffsetAmount: 26,
-          staggerAmount: 0.75,
-          clusterSize: 3,
-          overlapIntensity: 1.0,
-          animSpeed: 0.9,
-          offsetTiming: 0.6,
-          movementAmplitude: 70,
-          verticalMotionAmount: 1.0,
-          horizontalDriftAmount: 3,
-          loopSpeed: 1.0,
-          randomnessAmount: 0.3,
-          syncVsStagger: 0.8
+        typographyRipple: {
+          text:
+            'SIGNAL LOST IN THE BROADCAST SEQUENCE OF THIS DISRUPTED TRANSMISSION. THE NETWORK REROUTES EVERY FREQUENCY THROUGH LAYERS OF INTERFERENCE AS EDITORIAL DESKS RACE TO CONFIRM THE SOURCE.\n\nAcross every channel, fragmented signals rebuild themselves into a single verified broadcast, carrying the story forward before the next disruption arrives.',
+          fontFamily: 'Times New Roman',
+          fontSize: 29,
+          textColor: '#FFFFFF',
+          blockWidth: 16,
+          blockHeight: 32,
+          lineHeight: 42,
+          marginX: 90,
+          paragraphGap: 55,
+          verticalPulseStrength: 18,
+          blockScaleAmount: 0.08
         }
       },
       wave: {
         mode: 'flow',
-        pattern: 'linear',
+        pattern: 'circular',
         waveType: 'pulse',
-        waveSpeed: 1.1,
-        waveFrequency: 1.4,
+        waveSpeed: 0.5,
+        waveFrequency: 0.8,
         waveAmplitude: 1.0,
-        waveSoftness: 0.3,
-        linearAngle: 45,
-        vectorDistortion: 1.2,
-        blendBack: 0.75,
+        waveSoftness: 0.35,
+        frequencyThickness: 1.4,
+        vectorDistortion: 1.1,
+        blendBack: 0.0,
         originX: 0.5,
         originY: 0.5,
         frequencyVariation: 0.0,
@@ -254,7 +252,7 @@ export const PRESETS: Preset[] = [
         theme: 'swiss_editorial',
         visualStyle: 'modular_pixel',
         dotColor: '#c9e21b',
-        bgColor: '#f1ede4',
+        bgColor: '#f7f6f2',
         accentColor: '#1c1c1e',
         enableColorGradient: false,
         gradientColor: '#fb7185',
@@ -264,27 +262,8 @@ export const PRESETS: Preset[] = [
         radarGridOpacity: 0.2,
         showEmitterHandle: false,
         enableMultiColor: true,
-        multiColorPalette: ['#c9e21b', '#c99a2e', '#f2600c', '#0f9bd7', '#e0158c', '#dc2626', '#1c1c1e', '#a8a3b8'],
+        multiColorPalette: ['#c7aa20', '#9ba8c2', '#ea148c', '#f3a000', '#b4ed00', '#0d78de', '#ef3f32', '#252a29', '#a49b56'],
         multiColorDistribution: 'palette_list'
-      },
-      kvLayout: {
-        enabled: true,
-        mode: 'without_ui',
-        templateId: 'clean_focus',
-        graphicElements: [],
-        textBlocks: [
-          { id: 'bs_l1', name: 'Line 1', text: 'SIGNAL LOST IN THE BROADCAST SE', x: 40, y: 90, fontSize: 38, fontFamily: 'Inter', fontWeight: 600, letterSpacing: 0, lineHeight: 1.1, textAlign: 'left', color: '#ffffff', opacity: 0.95 },
-          { id: 'bs_l2', name: 'Line 2', text: 'QUENCE OF THIS DISRUPTED TRANS', x: 130, y: 160, fontSize: 34, fontFamily: 'Inter', fontWeight: 500, letterSpacing: 0, lineHeight: 1.1, textAlign: 'left', color: '#ffffff', opacity: 0.9 },
-          { id: 'bs_l3', name: 'Line 3', text: 'MISSION THE OTHER RECURRING', x: 210, y: 230, fontSize: 40, fontFamily: 'Inter', fontWeight: 600, letterSpacing: 0, lineHeight: 1.1, textAlign: 'left', color: '#ffffff', opacity: 0.95 },
-          { id: 'bs_l4', name: 'Line 4', text: 'FREQUENCIES BUILDING URGEN', x: 330, y: 300, fontSize: 34, fontFamily: 'Inter', fontWeight: 500, letterSpacing: 0, lineHeight: 1.1, textAlign: 'left', color: '#ffffff', opacity: 0.9 },
-          { id: 'bs_l5', name: 'Line 5', text: 'T ALERTS ACROSS THE NETWORK', x: 470, y: 370, fontSize: 38, fontFamily: 'Inter', fontWeight: 600, letterSpacing: 0, lineHeight: 1.1, textAlign: 'left', color: '#ffffff', opacity: 0.95 },
-          { id: 'bs_l6', name: 'Line 6', text: 'THE GEOPOLITICAL RESPONSE', x: 610, y: 440, fontSize: 34, fontFamily: 'Inter', fontWeight: 500, letterSpacing: 0, lineHeight: 1.1, textAlign: 'left', color: '#ffffff', opacity: 0.9 },
-          { id: 'bs_l7', name: 'Line 7', text: 'FRAGMENTED CHANNELS AND', x: 60, y: 660, fontSize: 36, fontFamily: 'Inter', fontWeight: 600, letterSpacing: 0, lineHeight: 1.1, textAlign: 'left', color: '#ffffff', opacity: 0.92 },
-          { id: 'bs_l8', name: 'Line 8', text: 'THEIR INTERFERENCE PATTERNS', x: 200, y: 730, fontSize: 34, fontFamily: 'Inter', fontWeight: 500, letterSpacing: 0, lineHeight: 1.1, textAlign: 'left', color: '#ffffff', opacity: 0.9 },
-          { id: 'bs_l9', name: 'Line 9', text: 'THE FORCES OF LATE CAPI', x: 340, y: 800, fontSize: 40, fontFamily: 'Inter', fontWeight: 600, letterSpacing: 0, lineHeight: 1.1, textAlign: 'left', color: '#ffffff', opacity: 0.95 },
-          { id: 'bs_l10', name: 'Line 10', text: 'TAL BROADCASTING SYSTEMS OF', x: 480, y: 870, fontSize: 34, fontFamily: 'Inter', fontWeight: 500, letterSpacing: 0, lineHeight: 1.1, textAlign: 'left', color: '#ffffff', opacity: 0.9 },
-          { id: 'bs_l11', name: 'Line 11', text: 'RESISTANCE TO THEIR REFRAIN', x: 610, y: 940, fontSize: 36, fontFamily: 'Inter', fontWeight: 600, letterSpacing: 0, lineHeight: 1.1, textAlign: 'left', color: '#ffffff', opacity: 0.92 }
-        ]
       }
     }
   },
@@ -770,7 +749,14 @@ export function applyPresetToState(presetOrId: Preset | string, currentState?: R
     },
     wave: {
       ...base.wave,
-      ...preset.config.wave
+      ...preset.config.wave,
+      // Dynamic Visual Thickness is a cross-cutting session setting (like Audio Reactivity below),
+      // not a preset-owned visual default — no preset currently bakes in its own
+      // `config.wave.dynamicThickness`, so the user's current setting carries forward across preset
+      // switches instead of silently resetting, while still defaulting to disabled on first load.
+      dynamicThickness: preset.config.wave?.dynamicThickness
+        ? { ...(base.wave.dynamicThickness as NonNullable<RenderState['wave']['dynamicThickness']>), ...preset.config.wave.dynamicThickness }
+        : currentState?.wave?.dynamicThickness || base.wave.dynamicThickness
     },
     style: {
       ...base.style,
@@ -785,11 +771,17 @@ export function applyPresetToState(presetOrId: Preset | string, currentState?: R
       ? { ...(base.kvLayout as NonNullable<RenderState['kvLayout']>), ...preset.config.kvLayout }
       : base.kvLayout,
     showEffectText: preset.config.showEffectText ?? base.showEffectText,
+    // Audio Reactivity is a cross-cutting session setting (like previewQuality), not a preset-owned
+    // visual default — no preset currently bakes in its own `config.audio`, so carrying the user's
+    // current audio session forward across preset switches is safe and avoids interrupting playback
+    // or duplicating analysis loops (item 12) while still resetting to the disabled default on first load.
+    audio: preset.config.audio
+      ? { ...(base.audio as RenderState['audio']), ...preset.config.audio }
+      : currentState?.audio || base.audio,
     isPlaying: true,
     time: 0,
     previewQuality: currentState?.previewQuality || 'auto',
-    audioActive: currentState?.audioActive || false,
-    audioSource: currentState?.audioSource || 'none'
+    audioActive: currentState?.audioActive || false
   };
 
   return merged;

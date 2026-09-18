@@ -1,6 +1,6 @@
 import React from 'react';
 import { RenderState, WaveConfig, FrequencyMappingMode } from '../types';
-import { GitBranch, Waves, Move } from 'lucide-react';
+import { GitBranch, Move } from 'lucide-react';
 
 interface FrequencyMappingControlsProps {
   state: RenderState;
@@ -9,7 +9,7 @@ interface FrequencyMappingControlsProps {
 
 const MODES: { id: FrequencyMappingMode; name: string; desc: string }[] = [
   { id: 'spatial_only', name: 'SPATIAL ONLY', desc: 'Frequency drives wave spacing only (default)' },
-  { id: 'thickness_only', name: 'THICKNESS ONLY', desc: 'Frequency drives thickness animation only' },
+  { id: 'thickness_only', name: 'THICKNESS ONLY', desc: 'Frequency drives Dynamic Thickness’s frequency only' },
   { id: 'motion_only', name: 'MOTION ONLY', desc: 'Frequency drives wave motion phase only' },
   { id: 'combined', name: 'COMBINED', desc: 'One master Frequency drives all three at once' }
 ];
@@ -18,7 +18,13 @@ const MODES: { id: FrequencyMappingMode; name: string; desc: string }[] = [
  * Advanced Frequency Control (item 1): lets Frequency become a flexible generative parameter that
  * can influence spatial distribution, thickness, and motion — independently or combined. Every field
  * here is additive-only and defaults to values that reproduce today's exact behavior (Spatial Only,
- * Thickness Animation off, Motion Amplitude 0), so no existing preset changes until a user opts in.
+ * Motion Amplitude 0), so no existing preset changes until a user opts in.
+ *
+ * Thickness animation itself now lives entirely in the "DYNAMIC VISUAL THICKNESS" panel below (a
+ * single ring-based system with Uniform/Radial Gradient/Random/Animated modes) — this panel used to
+ * carry its own separate "Thickness Frequency" slider group with near-identical fields (min/max
+ * thickness, frequency, animation speed, randomness), which read as a confusing duplicate sitting
+ * right next to the newer panel. THICKNESS ONLY / COMBINED here just feed that panel's frequency.
  */
 export const FrequencyMappingControls: React.FC<FrequencyMappingControlsProps> = ({ state, onUpdateState }) => {
   const wave = state.wave;
@@ -58,7 +64,6 @@ export const FrequencyMappingControls: React.FC<FrequencyMappingControlsProps> =
     </div>
   );
 
-  const showThickness = mapping === 'thickness_only' || mapping === 'combined' || (wave.waveThicknessAnimEnabled ?? false);
   const showMotion = mapping === 'motion_only' || mapping === 'combined' || (wave.waveMotionAmplitude ?? 0) > 0;
 
   return (
@@ -71,9 +76,9 @@ export const FrequencyMappingControls: React.FC<FrequencyMappingControlsProps> =
       </div>
 
       <p className="text-[9px] text-[#888] font-sans leading-relaxed">
-        Three independent frequency mappings: Spatial (wave spacing — the existing Frequency slider
-        above), Thickness (visual thickness pulsing), and Motion (organic per-wave phase drift).
-        Frequency Mapping picks which one the master Frequency slider also drives.
+        Two independent frequency mappings: Spatial (wave spacing — the existing Frequency slider
+        above) and Motion (organic per-wave phase drift). Frequency Mapping picks which one the master
+        Frequency slider also drives. Thickness mapping feeds the Dynamic Visual Thickness panel below.
       </p>
 
       {/* Frequency Mapping selector */}
@@ -95,6 +100,12 @@ export const FrequencyMappingControls: React.FC<FrequencyMappingControlsProps> =
         ))}
       </div>
 
+      {(mapping === 'thickness_only' || mapping === 'combined') && (
+        <p className="text-[9px] text-[#666] font-sans -mt-1">
+          Enable Dynamic Visual Thickness below (any mode other than Uniform) to see this take effect.
+        </p>
+      )}
+
       {mapping === 'combined' && (
         <div className="grid grid-cols-2 gap-3 pt-1">
           {slider('→ THICKNESS INFLUENCE', wave.freqThicknessInfluence || 0, 'freqThicknessInfluence', 0, 1, 0.05, '', 2)}
@@ -102,41 +113,8 @@ export const FrequencyMappingControls: React.FC<FrequencyMappingControlsProps> =
         </div>
       )}
 
-      {/* Thickness Frequency system */}
-      <div className="space-y-2 pt-2 border-t border-[#1a1a1a]">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase text-white flex items-center gap-1.5">
-            <Waves className="w-3 h-3 text-[#00F0FF]" /> THICKNESS FREQUENCY
-          </span>
-          <button
-            type="button"
-            onClick={() => updateWave({ waveThicknessAnimEnabled: !wave.waveThicknessAnimEnabled })}
-            className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase border transition-all ${
-              wave.waveThicknessAnimEnabled
-                ? 'bg-[#00F0FF]/20 text-[#00F0FF] border-[#00F0FF]/50'
-                : 'bg-[#181818] text-[#777] border-[#333]'
-            }`}
-          >
-            {wave.waveThicknessAnimEnabled ? 'ENABLED' : 'DISABLED'}
-          </button>
-        </div>
-        {showThickness && (
-          <>
-            <div className="grid grid-cols-2 gap-3">
-              {slider('MIN THICKNESS', wave.waveThicknessMin ?? 0.5, 'waveThicknessMin', 0.1, 2, 0.05, 'x', 2)}
-              {slider('MAX THICKNESS', wave.waveThicknessMax ?? 1.5, 'waveThicknessMax', 0.1, 4, 0.05, 'x', 2)}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {slider('FREQUENCY', wave.waveThicknessFrequency ?? 1.0, 'waveThicknessFrequency', 0, 5, 0.1, '', 1)}
-              {slider('VARIATION', wave.waveThicknessVariation || 0, 'waveThicknessVariation', 0, 1, 0.05, '', 2)}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {slider('ANIMATION SPEED', wave.waveThicknessAnimSpeed ?? 1.0, 'waveThicknessAnimSpeed', 0, 4, 0.05, 'x', 2)}
-              {slider('RANDOMNESS', wave.waveThicknessRandomness || 0, 'waveThicknessRandomness', 0, 1, 0.05, '', 2)}
-            </div>
-          </>
-        )}
-      </div>
+      {mapping === 'thickness_only' &&
+        slider('→ THICKNESS INFLUENCE', wave.freqThicknessInfluence || 0, 'freqThicknessInfluence', 0, 1, 0.05, '', 2)}
 
       {/* Motion Frequency system */}
       <div className="space-y-2 pt-2 border-t border-[#1a1a1a]">
