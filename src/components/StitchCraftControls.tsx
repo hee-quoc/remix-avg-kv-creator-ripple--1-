@@ -44,10 +44,10 @@ export const StitchCraftControls: React.FC<StitchCraftControlsProps> = ({
         <label className="block text-[#a8957e] mb-1.5 text-[10px] uppercase tracking-wider">
           MATERIAL LIBRARY
         </label>
-        <div className="grid grid-cols-2 gap-1.5">
+        <div className="grid grid-cols-3 gap-1.5">
           <button
             type="button"
-            onClick={() => onUpdateState((prev) => ({ ...prev, grid: { ...prev.grid, dotShape: 'stitch' } }))}
+            onClick={() => onUpdateState((prev) => ({ ...prev, grid: { ...prev.grid, dotShape: 'stitch', culturalMaterial: 'stitch' } }))}
             className={`p-2 rounded border text-left font-mono transition-colors ${
               state.grid.dotShape === 'stitch'
                 ? 'bg-amber-500/20 border-amber-500 text-amber-300 font-bold shadow-[0_0_8px_rgba(245,158,11,0.25)]'
@@ -59,7 +59,7 @@ export const StitchCraftControls: React.FC<StitchCraftControlsProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => onUpdateState((prev) => ({ ...prev, grid: { ...prev.grid, dotShape: 'woven' } }))}
+            onClick={() => onUpdateState((prev) => ({ ...prev, grid: { ...prev.grid, dotShape: 'woven', culturalMaterial: 'woven' } }))}
             className={`p-2 rounded border text-left font-mono transition-colors ${
               state.grid.dotShape === 'woven'
                 ? 'bg-amber-500/20 border-amber-500 text-amber-300 font-bold shadow-[0_0_8px_rgba(245,158,11,0.25)]'
@@ -69,9 +69,38 @@ export const StitchCraftControls: React.FC<StitchCraftControlsProps> = ({
             <span className="block text-[9.5px] font-bold uppercase">Woven Textile</span>
             <span className="text-[7.5px] opacity-75 block">Interlacing weft &amp; warp surface</span>
           </button>
+          <button
+            type="button"
+            onClick={() =>
+              onUpdateState((prev) => ({
+                ...prev,
+                grid: { ...prev.grid, dotShape: 'original_stitch', culturalMaterial: 'original_stitch' }
+              }))
+            }
+            className={`p-2 rounded border text-left font-mono transition-colors ${
+              state.grid.dotShape === 'original_stitch'
+                ? 'bg-amber-500/20 border-amber-500 text-amber-300 font-bold shadow-[0_0_8px_rgba(245,158,11,0.25)]'
+                : 'bg-[#18140e] border-[#292014] text-[#888] hover:text-amber-100'
+            }`}
+          >
+            <span className="block text-[9.5px] font-bold uppercase">Original Stitch</span>
+            <span className="text-[7.5px] opacity-75 block">Exact 120×120 rotated-ellipse weave</span>
+          </button>
         </div>
       </div>
 
+      {state.grid.dotShape === 'original_stitch' && (
+        <p className="text-[9px] text-amber-200/80 bg-amber-500/10 border border-amber-500/30 rounded px-2.5 py-2 leading-relaxed">
+          Original Stitch uses its own fixed 120×120 layout (source-exact geometry) — the Stitch
+          Pattern/Thread Geometry controls below apply to the Stitch/Woven materials only. Use the
+          Multi-Color Dot System panel above for its two-tone palette, and the WAVE tab for Ripple.
+        </p>
+      )}
+
+      {/* Stitch/Woven-only geometry controls — inert for Original Stitch, which uses its own fixed
+          source-exact 120x120 layout, so they're hidden rather than left visible-but-disconnected. */}
+      {state.grid.dotShape !== 'original_stitch' && (
+      <>
       {/* Stitch Pattern / Angle Mode */}
       <div>
         <label className="block text-[#a8957e] mb-1.5 text-[10px] uppercase tracking-wider">
@@ -222,6 +251,8 @@ export const StitchCraftControls: React.FC<StitchCraftControlsProps> = ({
           {stitchTensionAnim ? 'ENABLED' : 'STATIC'}
         </button>
       </div>
+      </>
+      )}
     </div>
   );
 };

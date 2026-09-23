@@ -102,6 +102,19 @@ export const Radial3DControls: React.FC<Radial3DControlsProps> = ({ state, onUpd
         rotation stay the same.
       </p>
 
+      {/* Compatibility notice — 3D Radial Wave uses its own dedicated point-generation path
+          (computeRadial3DParticles) and does not read the standard grid's dot shape at all, so a logo
+          uploaded from the GRID tab's Custom SVG panel won't appear here. It is NOT lost — switch the
+          MATERIAL above to Custom SVG and upload it again (or re-upload the same file) to use it in
+          this mode specifically. */}
+      {state.grid.dotShape === 'custom_svg' && state.grid.customSvgLayers && state.grid.customSvgLayers.length > 0 && (
+        <div className="text-[9px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-2.5 py-2 leading-relaxed">
+          3D Radial Wave is a separate rendering engine with its own SVG upload (below, under MATERIAL →
+          CUSTOM SVG) — it doesn't read the logo you uploaded in the GRID tab. That logo is safe and
+          still active if you switch back to a 2D wave pattern.
+        </div>
+      )}
+
       {/* Material Selector */}
       <div>
         <label className="block text-[#888] mb-1.5 text-[10px] uppercase tracking-wider flex items-center gap-1">

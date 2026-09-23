@@ -39,6 +39,9 @@ export interface AudioSignal {
   smoothedBeatIntensity?: number;
   secondWavePhase?: number;
   volumeHistory?: Float32Array; // 256-sample rolling history for the Continuous Music Ripple
+  vocal?: number; // smoothed, adaptively-normalized vocal-band envelope (see VocalReactivityConfig)
+  fullMix?: number; // combined band+RMS energy, no beat required
+  vocalRippleInfluence?: number; // final, detection-gated multiplier — see wave.ts's vocalReactivityActive usage
 }
 
 /**
@@ -104,6 +107,12 @@ export interface WaveFrameContext {
   dynamicThicknessPhaseOffset: number;
   dynamicThicknessRandomness: number;
   dynamicThicknessAudioInfluence: number;
+  // Vocal Reactivity (additive-only; inert unless audioConfig.vocalReactivity.mode is explicitly
+  // turned on) — modulates the EXISTING wave field (amplitude/thickness/radial movement), never
+  // spawns new rings. See VocalReactivityConfig doc comment in types.ts.
+  vocalReactivityActive: boolean;
+  vocalEnvelope: number;
+  vocalInfluence: number;
 }
 
 export function createWaveFrameContext(
@@ -225,6 +234,12 @@ export function createWaveFrameContext(
         case 'beatPulse':
           sourceVal = audioSignal!.beatPulse ?? 0;
           break;
+        case 'vocal':
+          sourceVal = audioSignal!.vocal ?? 0;
+          break;
+        case 'fullMix':
+          sourceVal = audioSignal!.fullMix ?? 0;
+          break;
       }
       const delta = sourceVal * m.amount;
       switch (m.target) {
@@ -257,6 +272,29 @@ export function createWaveFrameContext(
     audioSignal?.isActive &&
     audioSignal?.volumeHistory
   );
+
+  // Vocal Reactivity — directly modulates amplitude + thickness (radial displacement/intensity are
+  // applied in calculateWave below, where per-point geometry exists). Independent of, and additive
+  // on top of, the generic Parameter Mapping matrix above — this is what makes the feature usable
+  // out of the box the moment it's switched on, without also requiring a manual mapping entry.
+  //
+  // `vocalRippleInfluence` (not the raw `vocal` energy) is what's consumed here: the analyzer
+  // already gates it by Vocal DETECTION confidence in 'auto_detect' mode (hysteresis + min-duration
+  // debounce), and forces it to 0 in 'isolated' mode since no stem-separation engine is bundled —
+  // see VocalReactivityConfig's doc comment in types.ts. Raw `vocal` energy remains available,
+  // ungated, as a manual 'vocal' Parameter Mapping source above regardless of detection/mode.
+  const vocalReactivityActive = !!(
+    audioConfig?.enabled &&
+    audioConfig?.vocalReactivity?.mode &&
+    audioConfig.vocalReactivity.mode !== 'off' &&
+    audioSignal?.isActive
+  );
+  const vocalEnvelope = audioSignal?.vocalRippleInfluence ?? 0;
+  const vocalInfluence = audioConfig?.vocalReactivity?.influence ?? 0.6;
+  if (vocalReactivityActive) {
+    mappedAmpDelta += vocalEnvelope * vocalInfluence * 0.9;
+    mappedThicknessDelta += vocalEnvelope * vocalInfluence * 0.7;
+  }
 
   return {
     pattern,
@@ -308,7 +346,10 @@ export function createWaveFrameContext(
     dynamicThicknessAnimSpeed: dtAnimSpeed,
     dynamicThicknessPhaseOffset: dtPhaseOffset,
     dynamicThicknessRandomness: dtRandomness,
-    dynamicThicknessAudioInfluence: dtAudioInfluence
+    dynamicThicknessAudioInfluence: dtAudioInfluence,
+    vocalReactivityActive,
+    vocalEnvelope,
+    vocalInfluence
   };
 }
 
@@ -377,7 +418,10 @@ export function calculateWave(
     dynamicThicknessAnimSpeed,
     dynamicThicknessPhaseOffset,
     dynamicThicknessRandomness,
-    dynamicThicknessAudioInfluence
+    dynamicThicknessAudioInfluence,
+    vocalReactivityActive,
+    vocalEnvelope,
+    vocalInfluence
   } = ctx;
 
   let rDist = 0;
@@ -665,6 +709,21 @@ export function calculateWave(
     dx += (rx / r) * radialOffset;
     dy += (ry / r) * radialOffset;
     waveVal += 0.5 * smoothedBeatIntensity * (0.5 + 0.5 * Math.sin(ringIndex * secondWaveFrequency - secondWavePhase));
+  }
+
+  // Vocal Reactivity — radial displacement + ripple intensity (task item 5: "particle movement" /
+  // "ripple intensity"). Mirrors the Second Wave movement block above: purely additive on the
+  // EXISTING wavefront geometry, so singing modulates rings that are already there rather than
+  // spawning new ones on every vocal transient. Sustained notes hold a steady envelope (from the
+  // attack/release smoothing in audioAnalyzer.ts) instead of firing once and dying.
+  if (vocalReactivityActive && (pattern === 'circular' || pattern === 'spiral')) {
+    const rx = x - ox1;
+    const ry = y - oy1;
+    const r = Math.sqrt(rx * rx + ry * ry) + 0.001;
+    const vocalMovement = 20.0 * vocalInfluence * vocalEnvelope;
+    dx += (rx / r) * vocalMovement;
+    dy += (ry / r) * vocalMovement;
+    waveVal += 0.4 * vocalInfluence * vocalEnvelope;
   }
 
   // Audio Reactivity — Continuous Music Ripple (item 4): a travelling wavefront sampled from the

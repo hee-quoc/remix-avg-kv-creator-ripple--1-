@@ -1,7 +1,7 @@
 import { SDFData, sampleSDF } from './sdf';
 import { calculateWave, createWaveFrameContext, WaveFrameContext, WaveResult, AudioSignal } from './wave';
 import type { AudioConfig } from '../types';
-import { GridConfig, WaveConfig, FontConfig, StyleConfig, CustomSvgLayer, CustomSvgDistribution, CompositionMode, Radial3DConfig, ModularStripConfig, TypographyRippleConfig } from '../types';
+import { GridConfig, WaveConfig, FontConfig, StyleConfig, CustomSvgLayer, CustomSvgDistribution, CompositionMode, Radial3DConfig, ModularStripConfig, TypographyRippleConfig, TypographyBoxConfig, MeshNetConfig, SpeedStripeConfig } from '../types';
 
 export const DESIGN_WIDTH = 1920;
 export const DESIGN_HEIGHT = 1080;
@@ -31,6 +31,10 @@ export interface Particle {
   stitchLength?: number;
   stitchThickness?: number;
   stitchSoftness?: number;
+  // Typography Box Material (News)
+  cornerRadius?: number;
+  isFilled?: boolean;
+  strokeColor?: string;
 }
 
 /**
@@ -290,7 +294,17 @@ export function getOrCacheSvgImage(
       ? color
       : null;
 
-  const cacheKey = `${layer.id}_${layer.recolorMode}_${targetColor || 'orig'}`;
+  // Key accounts for: SVG source content, material configuration (recolorMode), and the relevant
+  // color setting (targetColor) — task requirement. Content is folded in via `svgXml.length` (an
+  // O(1) string-length read, not a content scan/hash) rather than `layer.id` alone, so a layer whose
+  // svgXml is ever replaced in place (same id, different markup — e.g. the legacy single-SVG upload
+  // path, which rebuilds a plain object every frame) can't silently keep serving a stale rasterized
+  // image. This must stay O(1): it runs once per particle per frame for custom_svg fields, so any
+  // per-call scan over the (potentially large) SVG string would be a real perf regression.
+  // Rendering-style-specific effects (rotation, extrusion, etc.) are intentionally NOT part of this
+  // key: they're applied at draw time from particle transforms, never baked into the rasterized
+  // bitmap, so varying visual style never needs a different cached image for the same SVG+color.
+  const cacheKey = `${layer.id}_${layer.svgXml.length}_${layer.recolorMode}_${targetColor || 'orig'}`;
 
   let img = svgImageCache.get(cacheKey);
   if (!img) {
@@ -577,6 +591,919 @@ export const DEFAULT_MODULAR_STRIP_CONFIG: ModularStripConfig = {
   randomnessAmount: 0.3,
   syncVsStagger: 0.85
 };
+
+// ============================================================================
+// CULTURE — ORIGINAL STITCH PATTERN
+// A pixel-for-pixel port of the source p5.js sketch's 120x120 stitch grid, fed through the SAME
+// wave/ripple engine used everywhere else (calculateWave) rather than a standalone renderer. Base
+// positions/angles/geometry are cached and only ever recomputed when canvas dimensions change (task
+// requirement: do not recreate 14,400 stitch objects every frame) — ripple only ever perturbs the
+// per-frame render position, never the cached base geometry, so amplitude 0 reproduces the exact
+// static source pattern.
+// ============================================================================
+
+const ORIGINAL_STITCH_ROWS = 120;
+const ORIGINAL_STITCH_COLS = 120;
+
+interface CachedOriginalStitchPoint {
+  x0: number;
+  y0: number;
+  rowIdx: number;
+  colIdx: number;
+  angleDeg: number;
+  ellipseW: number; // full width (diameter), matching p5's ellipse(x,y,w,h) convention
+  ellipseH: number; // full height (diameter)
+}
+
+let cachedOriginalStitchKey = '';
+let cachedOriginalStitchPoints: CachedOriginalStitchPoint[] = [];
+
+/** p5.js `map()` — linear-maps v from [a,b] to [c,d]. */
+function mapRange(v: number, a: number, b: number, c: number, d: number): number {
+  return c + ((v - a) * (d - c)) / (b - a);
+}
+
+function getCachedOriginalStitchPoints(width: number, height: number): CachedOriginalStitchPoint[] {
+  const key = `${width}_${height}`;
+  if (key === cachedOriginalStitchKey && cachedOriginalStitchPoints.length > 0) {
+    return cachedOriginalStitchPoints;
+  }
+  cachedOriginalStitchKey = key;
+
+  // translate(width/2, height/2) in the source sketch — everything below is relative to that origin.
+  const cx = width / 2;
+  const cy = height / 2;
+
+  // stitchLength = 1.66 * height / rows — constant across the whole grid in the source (computed
+  // inside the loop there only because JS re-evaluates it harmlessly every iteration; hoisted here).
+  const stitchLength = (1.66 * height) / ORIGINAL_STITCH_ROWS;
+  const ellipseW = stitchLength / 2.5;
+  const ellipseH = stitchLength;
+
+  const points: CachedOriginalStitchPoint[] = [];
+  for (let row = 0; row < ORIGINAL_STITCH_ROWS; row++) {
+    const y = mapRange(row, 0, ORIGINAL_STITCH_ROWS - 1, -height / 2.05, height / 2.1);
+    for (let col = 0; col < ORIGINAL_STITCH_COLS; col++) {
+      const x = mapRange(col, 0, ORIGINAL_STITCH_COLS - 1, -height / 2.05, height / 2.05);
+      // angle = -PI/8 + (col % 2) * PI/4 — alternating stitch orientation, exactly as authored.
+      const angleRad = -Math.PI / 8 + (col % 2) * (Math.PI / 4);
+      points.push({
+        x0: cx + x,
+        y0: cy + y,
+        rowIdx: row,
+        colIdx: col,
+        angleDeg: (angleRad * 180) / Math.PI,
+        ellipseW,
+        ellipseH
+      });
+    }
+  }
+
+  cachedOriginalStitchPoints = points;
+  return points;
+}
+
+/**
+ * Feeds each of the 14,400 cached stitch base positions through the existing wave engine
+ * (calculateWave/createWaveFrameContext — the same functions every other material uses), so Wave
+ * Frequency/Amplitude/Speed/Thickness/Softness, Dynamic Thickness, and Audio Reactivity all apply
+ * automatically without bespoke re-implementation. Only the stitch's RENDER POSITION is displaced;
+ * its angle and ellipse geometry are read unmodified from the cache, so amplitude 0 (Ripple off)
+ * reproduces the exact static pattern — fill color/alpha come from the app's normal color controls
+ * (single dotColor, OR the existing Multi-Color Dot Controls palette/distribution system) rather than
+ * being hardcoded, defaulted to the source sketch's rgba(80,120,255,200) single color / two-tone
+ * checkerboard (palette_list distribution) variants for the Culture preset.
+ *
+ * SVG support: if the user has uploaded Custom SVG layers (the SAME grid.customSvgLayers/
+ * customSvgDistribution used by the 'custom_svg' dotShape elsewhere), each stitch is assigned a layer
+ * exactly like the main particle loop does (assignedLayerIndices via the same cycle/random/size_tier/
+ * stacked distribution), and the renderer draws that SVG at the stitch's position — but still rotated
+ * by ITS OWN alternating stitch angle (not the layer's static rotationOffset alone), so "alternating
+ * stitch orientation must remain intact" keeps holding even when stitches are logo-shaped. With no
+ * layers uploaded, stitches fall back to the exact plain ellipse — unchanged from before.
+ *
+ * Text / SVG-mask support: gated on the SAME `grid.hideBackgroundDots` toggle every other
+ * shape/material already uses (header "HIDE BG DOTS" button, or the GRID tab) — OFF by default, which
+ * is what keeps the shipped Culture preset's static (Ripple-off) output pixel-identical to the source
+ * sketch, since the source has no text-masking concept at all. Turning it ON samples the SAME `sdf`
+ * this frame's headline (or, when Object Mask is set to "SVG LOGO", the same uploaded SVG-as-mask) is
+ * built from, via the exact `sampleSDF`/threshold/softness math the standard grid uses, and hides
+ * stitches outside that silhouette — so both plain text AND an SVG-as-text-mask logo shape the stitch
+ * field once explicitly opted into, without ever touching the fixed 120x120 base geometry.
+ */
+export function computeOriginalStitchParticles(
+  wave: WaveConfig,
+  style: StyleConfig,
+  grid: GridConfig,
+  font: FontConfig,
+  sdf: SDFData,
+  width: number,
+  height: number,
+  time: number,
+  audioSignal?: AudioSignal,
+  audioConfig?: AudioConfig
+): Particle[] {
+  const points = getCachedOriginalStitchPoints(width, height);
+  const waveFrameCtx = createWaveFrameContext(width, height, time, wave, audioSignal, audioConfig);
+  const dotColor = style.dotColor;
+  const seed = wave.randomSeed || 42;
+  const particles: Particle[] = [];
+
+  const useTextMask = !!grid.hideBackgroundDots;
+  const sdfThreshold = grid.sdfThreshold * 20.0;
+  const sdfSoftness = grid.sdfSoftness * 15.0 + 1.0;
+
+  // Multi-color support — reuses the SAME palette/distribution system every other shape in the app
+  // uses (Multi-Color Dot Controls), so this material stays visually/behaviorally consistent with the
+  // rest of the generative system rather than having its own bespoke coloring rule. With a 2-color
+  // palette and the 'palette_list' distribution, `(colIdx + rowIdx) % pal.length` reproduces exactly
+  // the checkerboard `(row + col) % 2` alternation from the reference two-tone sketch.
+  const usePalette = !!(style.enableMultiColor && style.multiColorPalette && style.multiColorPalette.length > 0);
+  const pal = style.multiColorPalette || [];
+  const dist = style.multiColorDistribution || 'palette_list';
+
+  // Uploaded Custom SVG layers — identical extraction logic to the standard particle loop below
+  // (including the legacy single-svg fallback), so Original Stitch reuses the exact same asset the
+  // rest of the app already has active rather than requiring a separate upload.
+  let activeCustomLayers: CustomSvgLayer[] = (grid.customSvgLayers || []).filter(
+    (l) => l.enabled !== false && l.svgXml
+  );
+  if (activeCustomLayers.length === 0 && grid.customSvgXml) {
+    activeCustomLayers = [
+      {
+        id: 'legacy_custom_layer',
+        name: grid.customSvgName || 'Custom SVG',
+        svgXml: grid.customSvgXml,
+        dataUrl: grid.customSvgDataUrl,
+        recolorMode: 'theme',
+        scale: 1.0,
+        rotationOffset: 0,
+        opacity: 1.0,
+        enabled: true
+      }
+    ];
+  }
+  const distributionMode: CustomSvgDistribution = grid.customSvgDistribution || 'cycle';
+
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i];
+    calculateWave(p.x0, p.y0, width, height, time, wave, audioSignal, waveFrameCtx, sharedWaveRes, audioConfig);
+
+    let x = p.x0;
+    let y = p.y0;
+    if (wave.mode === 'flow') {
+      const blend = 1.0 - wave.blendBack;
+      x += sharedWaveRes.displacementX * blend;
+      y += sharedWaveRes.displacementY * blend;
+    }
+
+    // Text / SVG-mask gate — see doc comment above. Sampled at the same base-vs-displaced blend the
+    // standard "Typography Masked Mode" path uses, so the silhouette tracks the ripple consistently.
+    let normalizedDist = 1.0;
+    if (useTextMask) {
+      const sampleX = wave.mode === 'flow' ? p.x0 + (x - p.x0) * wave.blendBack : p.x0;
+      const sampleY = wave.mode === 'flow' ? p.y0 + (y - p.y0) * wave.blendBack : p.y0;
+      const sdfDist = sampleSDF(sdf, sampleX, sampleY, width, height);
+      const distVal = font.invertText ? -sdfDist : sdfDist;
+      normalizedDist = Math.max(0, Math.min(1, (distVal + sdfThreshold) / sdfSoftness));
+      if (normalizedDist <= 0.01) continue;
+    }
+
+    let fillColor = dotColor;
+    if (usePalette) {
+      if (dist === 'random') {
+        const h = Math.abs((i * 2654435761 + seed) | 0);
+        fillColor = pal[h % pal.length];
+      } else if (dist === 'grouped') {
+        const groupIdx = Math.floor((p.x0 / width) * pal.length);
+        fillColor = pal[Math.max(0, Math.min(pal.length - 1, groupIdx))];
+      } else if (dist === 'gradient_based') {
+        const valNorm = Math.max(0, Math.min(0.999, sharedWaveRes.value));
+        fillColor = pal[Math.floor(valNorm * pal.length)];
+      } else {
+        // 'palette_list' (default) — sequential alternation by (col + row), matching the reference's
+        // (row + col) % 2 checkerboard exactly when given a 2-color palette.
+        fillColor = pal[(p.colIdx + p.rowIdx) % pal.length];
+      }
+    }
+
+    let assignedLayerIndices: number[] | undefined;
+    if (activeCustomLayers.length > 0) {
+      if (distributionMode === 'stacked') {
+        assignedLayerIndices = activeCustomLayers.map((_, idx) => idx);
+      } else if (distributionMode === 'random') {
+        const hash = Math.abs((i * 2654435761) | 0);
+        assignedLayerIndices = [hash % activeCustomLayers.length];
+      } else if (distributionMode === 'size_tier') {
+        // Uses the real text-mask distance when the mask is active (matching the standard grid's
+        // size_tier behavior exactly); otherwise falls back to a checkerboard-consistent (col+row)
+        // parity as the tiering key, since there's no distance signal without a mask.
+        const tier = useTextMask
+          ? Math.min(activeCustomLayers.length - 1, Math.floor(normalizedDist * activeCustomLayers.length))
+          : (p.colIdx + p.rowIdx) % activeCustomLayers.length;
+        assignedLayerIndices = [tier];
+      } else {
+        // 'cycle'
+        assignedLayerIndices = [i % activeCustomLayers.length];
+      }
+    }
+
+    // When an uploaded SVG logo is active on this stitch, fillColor doubles as the 'theme'/'original'
+    // recolor target getOrCacheSvgImage() keys its cache on (see the matching fix/comment in
+    // computeMeshNetParticles) — 'gradient_based' distribution ties fillColor to the continuously
+    // animated wave value, which would thrash that cache every frame and starve the image decode.
+    // Fall back to the stable checkerboard color specifically for logo-carrying stitches; the plain-
+    // ellipse ones (no assignedLayerIndices) keep the animated gradient look unaffected.
+    const svgSafeFillColor =
+      assignedLayerIndices && usePalette && dist === 'gradient_based' ? pal[(p.colIdx + p.rowIdx) % pal.length] : fillColor;
+
+    particles.push({
+      x,
+      y,
+      radius: p.ellipseH / 2,
+      fillColor: svgSafeFillColor,
+      opacity: style.uniformColorBrightness ? 1.0 : 200 / 255,
+      shape: 'original_stitch',
+      angleDeg: p.angleDeg,
+      width: p.ellipseW,
+      height: p.ellipseH,
+      customLayers: assignedLayerIndices ? activeCustomLayers : undefined,
+      assignedLayerIndices
+    });
+  }
+
+  return particles;
+}
+
+// ============================================================================
+// NEWS — TYPOGRAPHY BOX MATERIAL
+// A direct port of the user's existing p5.js material (rounded word-boxes packed into rows, random
+// fill/outline, fixed palette) — geometry/text/colors are generated once and cached exactly like the
+// source's setup() grid-packing loop. The ONLY thing replaced is the source's independent
+// currentBox/progress/boxData.pop() sequential reveal animation: opacity now comes from sampling the
+// SAME wave engine (calculateWave) every other material in this app already uses, at each box's
+// center — so Wave Frequency/Speed/Amplitude/Thickness/Softness/Origin, Dynamic Thickness, and Audio
+// Reactivity all drive it automatically, with zero bespoke animation code.
+// ============================================================================
+
+export const DEFAULT_TYPOGRAPHY_BOX_CONFIG: TypographyBoxConfig = {
+  words: ['caffeine', 'Hola!', 'Hallo!', 'Bonjour!', 'caffeine', '你好', 'こんにちは', 'Привет'],
+  colorPalette: ['#FFF533', '#F64FA7', '#73F849'],
+  fontFamily: 'Arial',
+  fontSize: 52,
+  boxHeight: 75,
+  horizontalPadding: 40,
+  marginX: 20,
+  marginY: 20,
+  cornerRadius: 50,
+  cornerRadiusMode: 'uniform',
+  cornerRadiusMin: 0,
+  cornerRadiusMax: 50,
+  filledRatio: 0.5,
+  strokeColor: '#000000',
+  textColor: '#000000',
+  strokeWidth: 3,
+  baseOpacity: 0.12,
+  minOpacity: 0.08,
+  maxOpacity: 1.0,
+  opacityInfluence: 0.9,
+  opacitySoftness: 0.45,
+  invertOpacity: false
+};
+
+interface TypoBoxItem {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  word: string;
+  fillColor: string;
+  isFilled: boolean;
+  cornerRadius: number;
+}
+
+// A single reused offscreen canvas for text measurement — created once, never touches the DOM, so
+// building/rebuilding the box grid never costs a real layout/paint (task: avoid unnecessary work).
+let typoBoxMeasureCtx: CanvasRenderingContext2D | null = null;
+function getTypoBoxMeasureCtx(): CanvasRenderingContext2D {
+  if (!typoBoxMeasureCtx) {
+    const canvas = document.createElement('canvas');
+    typoBoxMeasureCtx = canvas.getContext('2d')!;
+  }
+  return typoBoxMeasureCtx;
+}
+
+let cachedTypoBoxKey = '';
+let cachedTypoBoxItems: TypoBoxItem[] = [];
+
+/**
+ * Ports the source sketch's setup() grid-packing loop verbatim (same while/while structure, same
+ * `x + wordWidth > width` row-break condition, same word/color/filled random draws) — the only
+ * change is using the SAME deterministic prng() this codebase already uses elsewhere (seeded from
+ * wave.randomSeed) instead of p5's unseeded random(), so the layout is cacheable/reproducible rather
+ * than different on every reload (task: "use the existing deterministic random seed where possible").
+ * Cached by every input that affects layout/text/color, exactly like buildTypographyCells above —
+ * regenerated only when canvas size or one of the material's own settings actually changes, never by
+ * ripple/time (task item 6).
+ */
+function buildTypographyBoxItems(
+  cfg: TypographyBoxConfig,
+  width: number,
+  height: number,
+  seed: number
+): TypoBoxItem[] {
+  const words = cfg.words.length > 0 ? cfg.words : DEFAULT_TYPOGRAPHY_BOX_CONFIG.words;
+  const palette = cfg.colorPalette.length > 0 ? cfg.colorPalette : DEFAULT_TYPOGRAPHY_BOX_CONFIG.colorPalette;
+
+  const key = `${words.join('')}|${palette.join(',')}|${cfg.fontFamily}|${cfg.fontSize}|${cfg.boxHeight}|${cfg.horizontalPadding}|${cfg.marginX}|${cfg.marginY}|${cfg.filledRatio}|${cfg.cornerRadius}|${cfg.cornerRadiusMode}|${cfg.cornerRadiusMin}|${cfg.cornerRadiusMax}|${width}|${height}|${seed}`;
+  if (key === cachedTypoBoxKey && cachedTypoBoxItems.length > 0) {
+    return cachedTypoBoxItems;
+  }
+
+  const ctx = getTypoBoxMeasureCtx();
+  ctx.font = `bold ${cfg.fontSize}px "${cfg.fontFamily}", sans-serif`;
+
+  let rngIdx = 0;
+  const rand = () => prng(seed + 4271, rngIdx++);
+
+  const radiusMin = Math.min(cfg.cornerRadiusMin, cfg.cornerRadiusMax);
+  const radiusMax = Math.max(cfg.cornerRadiusMin, cfg.cornerRadiusMax);
+
+  const items: TypoBoxItem[] = [];
+  let y = 0;
+  while (y + cfg.boxHeight < height) {
+    let x = 0;
+    while (x < width) {
+      const word = words[Math.floor(rand() * words.length)] ?? words[0];
+      const wordWidth = ctx.measureText(word.toUpperCase()).width + cfg.horizontalPadding;
+
+      if (x + wordWidth > width) break;
+
+      // Wrapping shape: either one uniform radius for every box (original behavior), or each box
+      // gets its own radius drawn from [min, max] and cached (never re-rolled per frame) — a low min
+      // (0 by default) means some boxes land as plain sharp rectangles right alongside rounded ones.
+      const boxCornerRadius =
+        cfg.cornerRadiusMode === 'random' ? radiusMin + rand() * (radiusMax - radiusMin) : cfg.cornerRadius;
+
+      items.push({
+        x,
+        y,
+        w: wordWidth,
+        h: cfg.boxHeight,
+        word,
+        fillColor: palette[Math.floor(rand() * palette.length)] ?? palette[0],
+        isFilled: rand() < cfg.filledRatio,
+        cornerRadius: boxCornerRadius
+      });
+
+      x += wordWidth + cfg.marginX;
+    }
+    y += cfg.boxHeight + cfg.marginY;
+  }
+
+  cachedTypoBoxKey = key;
+  cachedTypoBoxItems = items;
+  return items;
+}
+
+/**
+ * Computes particles for the Typography Box Material. Box geometry/word/color/filled-state come from
+ * the cached grid above (untouched frame to frame); only opacity is recalculated every frame, sampled
+ * from calculateWave() at each box's own center — this IS the "sampleExistingRipple" from the task's
+ * conceptual pseudocode, using the real wave engine instead of a placeholder. Position is intentionally
+ * NEVER displaced (unlike Flow-mode dots elsewhere): these boxes are tightly packed with zero gap
+ * tolerance, so moving them would tear the grid apart — only opacity responds to the ripple, exactly
+ * as the task specifies ("preserving their original shapes... grid arrangement").
+ */
+export function computeTypographyBoxParticles(
+  grid: GridConfig,
+  wave: WaveConfig,
+  style: StyleConfig,
+  width: number,
+  height: number,
+  time: number,
+  audioSignal?: AudioSignal,
+  audioConfig?: AudioConfig
+): Particle[] {
+  const cfg: TypographyBoxConfig = { ...DEFAULT_TYPOGRAPHY_BOX_CONFIG, ...(grid.typographyBox || {}) };
+  const seed = wave.randomSeed || 42;
+  const items = buildTypographyBoxItems(cfg, width, height, seed);
+  const waveFrameCtx = createWaveFrameContext(width, height, time, wave, audioSignal, audioConfig);
+
+  const influence = Math.max(0, Math.min(1, cfg.opacityInfluence));
+  const softness = Math.max(0.02, Math.min(1, cfg.opacitySoftness));
+  const lo = 0.5 - softness / 2;
+  const hi = 0.5 + softness / 2;
+
+  // Wave Amplitude, by architecture, only scales calculateWave's DISPLACEMENT output — never its
+  // scalar `.value` (intensity), since amplitude in this engine means "how far things move," not "how
+  // strong the pulse reads." Since these boxes deliberately never move (task: preserve the packed
+  // grid), Amplitude is folded in here instead as a genuine strength multiplier on the opacity signal,
+  // via the SAME baseAmp the engine already derives from waveAmplitude (+ any audio-mapped delta) —
+  // so turning Amplitude down measurably dampens the reveal, and up strengthens it, without ever
+  // displacing a box.
+  const ampFactor = Math.max(0, Math.min(1.5, waveFrameCtx.baseAmp));
+
+  const particles: Particle[] = new Array(items.length);
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const centerX = item.x + item.w / 2;
+    const centerY = item.y + item.h / 2;
+
+    // Ripple → opacity mapping (task item 3): sample the real wave engine at this box's center.
+    calculateWave(centerX, centerY, width, height, time, wave, audioSignal, waveFrameCtx, sharedWaveRes, audioConfig);
+
+    let t = Math.max(0, Math.min(1, (sharedWaveRes.value / 1.6) * ampFactor));
+    if (cfg.invertOpacity) t = 1 - t;
+    const edgeT = hi > lo ? Math.max(0, Math.min(1, (t - lo) / (hi - lo))) : t < lo ? 0 : 1;
+    const smoothT = edgeT * edgeT * (3 - 2 * edgeT);
+    const rippleOpacity = cfg.minOpacity + (cfg.maxOpacity - cfg.minOpacity) * smoothT;
+    const finalOpacity = cfg.baseOpacity * (1 - influence) + rippleOpacity * influence;
+
+    particles[i] = {
+      x: centerX,
+      y: centerY,
+      radius: item.h / 2,
+      fillColor: item.fillColor,
+      opacity: Math.max(0, Math.min(1, finalOpacity)),
+      shape: 'typography_box',
+      width: item.w,
+      height: item.h,
+      char: item.word,
+      fontSize: cfg.fontSize,
+      fontFamily: cfg.fontFamily,
+      glyphColor: cfg.textColor,
+      strokeColor: cfg.strokeColor,
+      strokeWidth: cfg.strokeWidth,
+      cornerRadius: item.cornerRadius,
+      isFilled: item.isFilled
+    };
+  }
+
+  return particles;
+}
+
+// ============================================================================
+// SPORTS — SINE MESH NET
+// A wireframe grid whose intersections are displaced by the SAME wave engine (calculateWave) every
+// other material already uses — a circular wave pattern from the existing Ripple Origin reads
+// exactly like a ball-impact ripple spreading through a net, with zero bespoke physics. Rendered
+// entirely with EXISTING particle shapes (line segments as 'tangent_line', node points as 'circle')
+// so no new Canvas/SVG rendering code was needed at all.
+// ============================================================================
+
+export const DEFAULT_MESH_NET_CONFIG: MeshNetConfig = {
+  meshWidth: 0.62,
+  meshHeight: 0.62,
+  densityX: 16,
+  densityY: 12,
+  lineThickness: 2,
+  showNodes: true,
+  nodeSize: 2.6,
+  curvature: 0.15,
+  perspectiveAmount: 0.2,
+  displacementStrength: 1.1,
+  damping: 0.35,
+  lineColor: '#E8ECF5',
+  nodeColor: '#FFFFFF',
+  accentColor: '#39FF9E',
+  lineOpacity: 0.55,
+  glowIntensity: 0.8
+};
+
+interface MeshNetPoint {
+  x0: number; // base (flat/curved/perspective) position — BEFORE wave displacement
+  y0: number;
+}
+
+let cachedMeshNetKey = '';
+let cachedMeshNetPoints: MeshNetPoint[] = [];
+let cachedMeshNetCols = 0;
+let cachedMeshNetRows = 0;
+
+/**
+ * Builds the flat base grid (with optional curvature/perspective already folded in) once and caches
+ * it — only geometry settings or canvas size invalidate it, never the wave/ripple state (task item:
+ * cache mesh geometry, don't rebuild every frame).
+ */
+function getCachedMeshNetGrid(
+  cfg: MeshNetConfig,
+  width: number,
+  height: number
+): { points: MeshNetPoint[]; cols: number; rows: number } {
+  const cols = Math.max(1, Math.round(cfg.densityX));
+  const rows = Math.max(1, Math.round(cfg.densityY));
+  const key = `${cfg.meshWidth}|${cfg.meshHeight}|${cols}|${rows}|${cfg.curvature}|${cfg.perspectiveAmount}|${width}|${height}`;
+  if (key === cachedMeshNetKey && cachedMeshNetPoints.length > 0) {
+    return { points: cachedMeshNetPoints, cols: cachedMeshNetCols, rows: cachedMeshNetRows };
+  }
+
+  const cx = width / 2;
+  const cy = height / 2;
+  const meshW = cfg.meshWidth * width;
+  const meshH = cfg.meshHeight * height;
+
+  const points: MeshNetPoint[] = [];
+  for (let row = 0; row <= rows; row++) {
+    const v = rows > 0 ? row / rows - 0.5 : 0; // -0.5..0.5, top to bottom
+    // Perspective: rows further from the mesh's own center compress horizontally, simulating a
+    // slight tilt/depth (a net viewed at an angle) without a real 3D camera.
+    const perspScale = 1 - cfg.perspectiveAmount * v * 0.6;
+    for (let col = 0; col <= cols; col++) {
+      const u = cols > 0 ? col / cols - 0.5 : 0; // -0.5..0.5, left to right
+      // Curvature: gentle vertical sag across the width — a hanging-net bow, strongest at center.
+      const sag = cfg.curvature * Math.cos(u * Math.PI) * meshH * 0.18;
+      points.push({
+        x0: cx + u * meshW * perspScale,
+        y0: cy + v * meshH + sag
+      });
+    }
+  }
+
+  cachedMeshNetKey = key;
+  cachedMeshNetPoints = points;
+  cachedMeshNetCols = cols;
+  cachedMeshNetRows = rows;
+  return { points, cols, rows };
+}
+
+/**
+ * Computes particles for the Sine Mesh Net material. Every intersection samples calculateWave() at
+ * its own (undisplaced) base position — the exact same call every other material makes — so Wave
+ * Frequency/Speed/Amplitude/Softness/Thickness, Ripple Origin (= impact point), Radial Thickness
+ * (= impact falloff), Wave Pattern (circular = radial impact ripple, linear = directional sweep),
+ * Dynamic Thickness, and Audio Reactivity all drive the net's motion automatically. `damping` further
+ * fades displacement from the MESH's own center outward, on top of whatever falloff the wave pattern
+ * itself already has, for a more net-like "impact settles toward the edges" feel.
+ *
+ * SVG logo support: if the user has uploaded Custom SVG layers (grid.customSvgLayers — the SAME
+ * asset the 'custom_svg' dotShape and Original Stitch Pattern both reuse), the mesh's NODE points
+ * render that logo instead of a plain dot, using the exact 'custom_svg' particle shape/renderer — the
+ * knots of the net become your logo. Lines stay thread-like ('tangent_line'); a logo squeezed into a
+ * thin rope segment wouldn't read, so line rendering is unaffected. Text/SVG-as-mask (Object Mask =
+ * SVG LOGO in the TEXT tab) is separate — see the `useTextMask` block below, gated on the SAME
+ * `grid.hideBackgroundDots` toggle every other bypass-SDF material in this app already uses.
+ */
+export function computeMeshNetParticles(
+  grid: GridConfig,
+  wave: WaveConfig,
+  style: StyleConfig,
+  font: FontConfig,
+  sdf: SDFData,
+  width: number,
+  height: number,
+  time: number,
+  audioSignal?: AudioSignal,
+  audioConfig?: AudioConfig
+): Particle[] {
+  const cfg: MeshNetConfig = { ...DEFAULT_MESH_NET_CONFIG, ...(grid.meshNet || {}) };
+  const { points, cols, rows } = getCachedMeshNetGrid(cfg, width, height);
+  const waveFrameCtx = createWaveFrameContext(width, height, time, wave, audioSignal, audioConfig);
+
+  const meshHalfDiag =
+    Math.sqrt(Math.pow(cfg.meshWidth * width, 2) + Math.pow(cfg.meshHeight * height, 2)) / 2 || 1;
+
+  // Uploaded Custom SVG layers — identical extraction logic to the standard particle loop / Original
+  // Stitch Pattern, so this material reuses the exact same asset already active elsewhere.
+  let activeCustomLayers: CustomSvgLayer[] = (grid.customSvgLayers || []).filter(
+    (l) => l.enabled !== false && l.svgXml
+  );
+  if (activeCustomLayers.length === 0 && grid.customSvgXml) {
+    activeCustomLayers = [
+      {
+        id: 'legacy_custom_layer',
+        name: grid.customSvgName || 'Custom SVG',
+        svgXml: grid.customSvgXml,
+        dataUrl: grid.customSvgDataUrl,
+        recolorMode: 'theme',
+        scale: 1.0,
+        rotationOffset: 0,
+        opacity: 1.0,
+        enabled: true
+      }
+    ];
+  }
+  const svgDistributionMode: CustomSvgDistribution = grid.customSvgDistribution || 'cycle';
+  const logoRadius = Math.max(cfg.nodeSize * 2.5, 6);
+
+  // Text / SVG-mask gate — same toggle and math as Original Stitch Pattern (HIDE BG DOTS). OFF by
+  // default so the shipped preset's look never changes; ON hides mesh points outside the current
+  // headline text (or an uploaded SVG-as-mask logo from Object Mask → SVG LOGO) silhouette.
+  const useTextMask = !!grid.hideBackgroundDots;
+  const sdfThreshold = grid.sdfThreshold * 20.0;
+  const sdfSoftness = grid.sdfSoftness * 15.0 + 1.0;
+
+  const dispX = new Float32Array(points.length);
+  const dispY = new Float32Array(points.length);
+  const strength = new Float32Array(points.length);
+  const masked = new Uint8Array(points.length); // 1 = hidden by text/SVG mask
+
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i];
+    calculateWave(p.x0, p.y0, width, height, time, wave, audioSignal, waveFrameCtx, sharedWaveRes, audioConfig);
+
+    const distFromMeshCenter = Math.hypot(p.x0 - width / 2, p.y0 - height / 2);
+    const dampFactor = Math.max(0, 1 - cfg.damping * Math.min(1, distFromMeshCenter / meshHalfDiag));
+
+    dispX[i] = p.x0 + sharedWaveRes.displacementX * cfg.displacementStrength * dampFactor;
+    dispY[i] = p.y0 + sharedWaveRes.displacementY * cfg.displacementStrength * dampFactor;
+    strength[i] = Math.max(0, Math.min(1, Math.abs(sharedWaveRes.value - 0.5) * 2));
+
+    if (useTextMask) {
+      const sdfDist = sampleSDF(sdf, p.x0, p.y0, width, height);
+      const distVal = font.invertText ? -sdfDist : sdfDist;
+      const normalizedDist = Math.max(0, Math.min(1, (distVal + sdfThreshold) / sdfSoftness));
+      masked[i] = normalizedDist <= 0.01 ? 1 : 0;
+    }
+  }
+
+  const particles: Particle[] = [];
+  const colsPerRow = cols + 1;
+  const idx = (col: number, row: number) => row * colsPerRow + col;
+
+  const pushSegment = (i1: number, i2: number) => {
+    if (masked[i1] || masked[i2]) return;
+    const x1 = dispX[i1];
+    const y1 = dispY[i1];
+    const x2 = dispX[i2];
+    const y2 = dispY[i2];
+    const len = Math.hypot(x2 - x1, y2 - y1);
+    if (len < 0.5) return;
+
+    const segStrength = (strength[i1] + strength[i2]) / 2;
+    const glow = segStrength * cfg.glowIntensity;
+    const fillColor = glow > 0.02 ? mixHexColors(cfg.lineColor, cfg.accentColor, Math.min(1, glow)) : cfg.lineColor;
+
+    particles.push({
+      x: (x1 + x2) / 2,
+      y: (y1 + y2) / 2,
+      radius: cfg.lineThickness / 2,
+      fillColor,
+      opacity: Math.max(0.05, Math.min(1, cfg.lineOpacity + glow * 0.45)),
+      shape: 'tangent_line',
+      width: len,
+      height: cfg.lineThickness,
+      angleDeg: (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI
+    });
+  };
+
+  // Horizontal threads, then vertical threads — the two families of lines that make up the net.
+  for (let row = 0; row <= rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      pushSegment(idx(col, row), idx(col + 1, row));
+    }
+  }
+  for (let col = 0; col <= cols; col++) {
+    for (let row = 0; row < rows; row++) {
+      pushSegment(idx(col, row), idx(col, row + 1));
+    }
+  }
+
+  if (cfg.showNodes) {
+    for (let i = 0; i < points.length; i++) {
+      if (masked[i]) continue;
+      const glow = strength[i] * cfg.glowIntensity;
+
+      if (activeCustomLayers.length > 0) {
+        let assignedLayerIndices: number[];
+        if (svgDistributionMode === 'stacked') {
+          assignedLayerIndices = activeCustomLayers.map((_, idx2) => idx2);
+        } else if (svgDistributionMode === 'random') {
+          const hash = Math.abs((i * 2654435761) | 0);
+          assignedLayerIndices = [hash % activeCustomLayers.length];
+        } else if (svgDistributionMode === 'size_tier') {
+          // Unlike the standard grid (tiered by a STABLE distance-from-text value), this material's
+          // only per-point signal is wave `strength`, which is continuously animated — tiering the
+          // assigned LAYER by it would swap a node's logo every frame (the same class of bug as the
+          // fillColor cache-thrashing issue above). Falls back to the same stable assignment as
+          // 'cycle' so multi-layer uploads stay visually stable here.
+          assignedLayerIndices = [i % activeCustomLayers.length];
+        } else {
+          assignedLayerIndices = [i % activeCustomLayers.length];
+        }
+        particles.push({
+          // fillColor stays the STABLE cfg.nodeColor here — not blended with glow like the plain-
+          // circle fallback below. getOrCacheSvgImage() keys its cache on this exact color (recolorMode
+          // 'theme'/'original'), so a value that changes every frame (glow is continuously animated)
+          // would force a brand-new Image()/data-URI decode for every node on every frame — never
+          // hitting the cache, never finishing decode in time to draw, and starving the render loop.
+          // That was the actual cause of nodes appearing to vanish/flicker once an SVG logo was active.
+          // The "impact glow" cue still reads clearly through opacity below, which is cheap per-frame.
+          x: dispX[i],
+          y: dispY[i],
+          radius: logoRadius,
+          fillColor: cfg.nodeColor,
+          opacity: Math.max(0.1, Math.min(1, cfg.lineOpacity + 0.35 + glow * 0.45)),
+          shape: 'custom_svg',
+          customLayers: activeCustomLayers,
+          assignedLayerIndices
+        });
+      } else {
+        const fillColor = glow > 0.02 ? mixHexColors(cfg.nodeColor, cfg.accentColor, Math.min(1, glow)) : cfg.nodeColor;
+        particles.push({
+          x: dispX[i],
+          y: dispY[i],
+          radius: cfg.nodeSize,
+          fillColor,
+          opacity: Math.max(0.1, Math.min(1, cfg.lineOpacity + 0.25 + glow * 0.45)),
+          shape: 'circle'
+        });
+      }
+    }
+  }
+
+  return particles;
+}
+
+// ============================================================================
+// SPORTS — SPEED STRIPE FIELD
+// A field of diagonal dash units rendered entirely with the EXISTING 'tile' particle shape (a sharp-
+// cornered rotated rectangle already used by Style 09 Kinetic Tile Vortex) — no new Canvas/SVG
+// rendering code needed. Every dash samples the SAME wave engine (calculateWave) every other material
+// uses, at its own center, so Wave Frequency/Speed/Amplitude/Origin/Pattern (WAVE tab) drive the
+// ripple itself; this material only decides how strongly/which way each dash READS that ripple.
+// ============================================================================
+
+export const DEFAULT_SPEED_STRIPE_CONFIG: SpeedStripeConfig = {
+  dashAngle: 35,
+  dashWidth: 52,
+  dashHeight: 16,
+  spacingX: 6,
+  spacingY: 6,
+  rowOffset: 0.5,
+  columnCount: 12,
+  rowCount: 9,
+  fieldWidth: 0.72,
+  fieldHeight: 0.5,
+  scaleProgression: 0,
+  variationMode: 'wave_activated',
+  rippleInfluence: 0.9,
+  animSpeed: 1.0,
+  displacementAmount: 0.25,
+  opacityInfluence: 0.6,
+  scalePulseAmount: 0.3,
+  staggerAmount: 0,
+  motionDirection: 0,
+  primaryColor: '#FFF200',
+  secondaryColor: '#000000',
+  baseOpacity: 0.85,
+  minOpacity: 0.3,
+  maxOpacity: 1.0,
+  contrast: 1.0
+};
+
+interface SpeedStripePoint {
+  col: number;
+  row: number;
+  bx: number; // base center x, BEFORE wave displacement
+  by: number; // base center y
+  dashW: number; // pre-scaled dash render width (already clamped to its cell pitch)
+  dashH: number; // pre-scaled dash render height
+}
+
+let cachedSpeedStripeKey = '';
+let cachedSpeedStripePoints: SpeedStripePoint[] = [];
+
+/**
+ * Builds the dash field's base positions/sizes once and caches them — only geometry settings or
+ * canvas size invalidate it, never the wave/ripple state (same cache-geometry-not-per-frame pattern
+ * as getCachedMeshNetGrid / buildTypographyBoxItems above).
+ */
+function getCachedSpeedStripeGrid(cfg: SpeedStripeConfig, width: number, height: number): SpeedStripePoint[] {
+  const cols = Math.max(1, Math.round(cfg.columnCount));
+  const rows = Math.max(1, Math.round(cfg.rowCount));
+  const key = `${cfg.fieldWidth}|${cfg.fieldHeight}|${cols}|${rows}|${cfg.dashWidth}|${cfg.dashHeight}|${cfg.spacingX}|${cfg.spacingY}|${cfg.rowOffset}|${cfg.scaleProgression}|${width}|${height}`;
+  if (key === cachedSpeedStripeKey && cachedSpeedStripePoints.length > 0) {
+    return cachedSpeedStripePoints;
+  }
+
+  const fieldW = cfg.fieldWidth * width;
+  const fieldH = cfg.fieldHeight * height;
+  const fieldX0 = width / 2 - fieldW / 2;
+  const fieldY0 = height / 2 - fieldH / 2;
+  const colPitch = fieldW / cols;
+  const rowPitch = fieldH / rows;
+  const baseDashW = Math.max(1, Math.min(cfg.dashWidth, colPitch - cfg.spacingX));
+  const baseDashH = Math.max(1, Math.min(cfg.dashHeight, rowPitch - cfg.spacingY));
+
+  const points: SpeedStripePoint[] = [];
+  for (let row = 0; row < rows; row++) {
+    const rowOffsetPx = row % 2 === 1 ? cfg.rowOffset * colPitch : 0;
+    for (let col = 0; col < cols; col++) {
+      // Static scaling progression across the field (FORM STRUCTURE: "optional scaling progression").
+      const t = cols > 1 ? col / (cols - 1) - 0.5 : 0; // -0.5..0.5
+      const progressionMul = 1 + cfg.scaleProgression * t * 2;
+      points.push({
+        col,
+        row,
+        bx: fieldX0 + col * colPitch + rowOffsetPx + colPitch / 2,
+        by: fieldY0 + row * rowPitch + rowPitch / 2,
+        dashW: Math.max(1, baseDashW * progressionMul),
+        dashH: Math.max(1, baseDashH * progressionMul)
+      });
+    }
+  }
+
+  cachedSpeedStripeKey = key;
+  cachedSpeedStripePoints = points;
+  return points;
+}
+
+/**
+ * Computes particles for the Speed Stripe Field material. Each dash calls calculateWave() at its own
+ * base position — the exact same function every other material calls — so by default the dash field
+ * genuinely RADIATES from the WAVE tab's Ripple Origin exactly like every other preset (circular wave
+ * pattern spreading outward), instead of a bespoke motion system. `staggerAmount` defaults to 0 for
+ * this reason — it's an OPTIONAL extra directional "sweep" (time-shifting each dash's OWN
+ * calculateWave() call based on its projected position along `motionDirection`, no second motion
+ * system), only for when a user deliberately wants a linear drift on top of/instead of the natural
+ * radiating ripple. `rippleInfluence`/`opacityInfluence`/`displacementAmount`/`scalePulseAmount` decide
+ * how strongly each dash's own wave sample shows up as opacity, position, and size.
+ */
+export function computeSpeedStripeParticles(
+  grid: GridConfig,
+  wave: WaveConfig,
+  style: StyleConfig,
+  font: FontConfig,
+  sdf: SDFData,
+  width: number,
+  height: number,
+  time: number,
+  audioSignal?: AudioSignal,
+  audioConfig?: AudioConfig
+): Particle[] {
+  const cfg: SpeedStripeConfig = { ...DEFAULT_SPEED_STRIPE_CONFIG, ...(grid.speedStripe || {}) };
+  const points = getCachedSpeedStripeGrid(cfg, width, height);
+  const waveFrameCtx = createWaveFrameContext(width, height, time, wave, audioSignal, audioConfig);
+
+  const fieldDiag = Math.sqrt(Math.pow(cfg.fieldWidth * width, 2) + Math.pow(cfg.fieldHeight * height, 2)) || 1;
+  const dirRad = (cfg.motionDirection * Math.PI) / 180;
+  const dirX = Math.cos(dirRad);
+  const dirY = Math.sin(dirRad);
+  const useStagger = cfg.variationMode === 'staggered' || cfg.variationMode === 'wave_activated';
+  const useScalePulse = cfg.variationMode === 'scaled' || cfg.variationMode === 'wave_activated';
+  const useAlternating = cfg.variationMode === 'alternating';
+  const rippleGate = Math.max(0, Math.min(1, cfg.rippleInfluence));
+
+  // Text / SVG-mask gate — same toggle and math as Original Stitch Pattern / Sine Mesh Net.
+  const useTextMask = !!grid.hideBackgroundDots;
+  const sdfThreshold = grid.sdfThreshold * 20.0;
+  const sdfSoftness = grid.sdfSoftness * 15.0 + 1.0;
+
+  const particles: Particle[] = [];
+
+  for (const p of points) {
+    if (useTextMask) {
+      const sdfDist = sampleSDF(sdf, p.bx, p.by, width, height);
+      const distVal = font.invertText ? -sdfDist : sdfDist;
+      const normalizedDist = Math.max(0, Math.min(1, (distVal + sdfThreshold) / sdfSoftness));
+      if (normalizedDist <= 0.01) continue;
+    }
+
+    let effectiveTime = time * cfg.animSpeed;
+    if (useStagger) {
+      const proj = (p.bx * dirX + p.by * dirY) / fieldDiag; // roughly -1..1
+      effectiveTime -= proj * cfg.staggerAmount * 1.5;
+    }
+
+    calculateWave(p.bx, p.by, width, height, effectiveTime, wave, audioSignal, waveFrameCtx, sharedWaveRes, audioConfig);
+
+    const rawStrength = Math.max(0, Math.min(1, Math.abs(sharedWaveRes.value - 0.5) * 2));
+    const contrasted = Math.max(0, Math.min(1, 0.5 + (rawStrength - 0.5) * cfg.contrast));
+    const gatedStrength = contrasted * rippleGate;
+
+    const x = p.bx + sharedWaveRes.displacementX * cfg.displacementAmount;
+    const y = p.by + sharedWaveRes.displacementY * cfg.displacementAmount;
+
+    const scaleMul = useScalePulse ? 1 + gatedStrength * cfg.scalePulseAmount : 1;
+    const dashW = p.dashW * scaleMul;
+    const dashH = p.dashH * scaleMul;
+
+    let fillColor: string;
+    if (useAlternating) {
+      fillColor = (p.col + p.row) % 2 === 0 ? cfg.primaryColor : cfg.secondaryColor;
+    } else {
+      fillColor = gatedStrength > 0.04 ? mixHexColors(cfg.primaryColor, cfg.secondaryColor, Math.min(1, gatedStrength * 1.2)) : cfg.primaryColor;
+    }
+
+    const rippleOpacity = cfg.minOpacity + (cfg.maxOpacity - cfg.minOpacity) * gatedStrength;
+    const opacity = Math.max(0, Math.min(1, cfg.baseOpacity * (1 - cfg.opacityInfluence) + rippleOpacity * cfg.opacityInfluence));
+
+    particles.push({
+      x,
+      y,
+      radius: dashH / 2,
+      fillColor,
+      opacity,
+      shape: 'tile',
+      width: dashW,
+      height: dashH,
+      angleDeg: cfg.dashAngle
+    });
+  }
+
+  return particles;
+}
 
 /**
  * Computes particles for the Modular Signal Field mode. Time-based (not frame-based) so speed stays
@@ -914,6 +1841,33 @@ export function computeParticles(
     return computeRadial3DParticles(wave, style, width, height, time);
   }
 
+  // Culture — Original Stitch Pattern uses its own dedicated 120x120 point-generation path (exact
+  // port of the source sketch) rather than the text-masked grid below — see
+  // computeOriginalStitchParticles. Gated on dotShape so no other preset/style is affected.
+  if (grid.dotShape === 'original_stitch') {
+    return computeOriginalStitchParticles(wave, style, grid, font, sdf, width, height, time, audioSignal, audioConfig);
+  }
+
+  // News — Typography Box Material uses its own dedicated word-box grid (see
+  // computeTypographyBoxParticles) rather than the text-masked grid below — the boxes' own words ARE
+  // the visible content, so no SDF masking applies. Gated on dotShape so no other preset is affected.
+  if (grid.dotShape === 'typography_box') {
+    return computeTypographyBoxParticles(grid, wave, style, width, height, time, audioSignal, audioConfig);
+  }
+
+  // Sports — Sine Mesh Net uses its own dedicated wireframe grid (see computeMeshNetParticles) rather
+  // than the text-masked grid below. Gated on dotShape so no other preset/style is affected.
+  if (grid.dotShape === 'mesh_net') {
+    return computeMeshNetParticles(grid, wave, style, font, sdf, width, height, time, audioSignal, audioConfig);
+  }
+
+  // Sports — Speed Stripe Field uses its own dedicated diagonal dash grid (see
+  // computeSpeedStripeParticles) rather than the text-masked grid below. Gated on dotShape so no other
+  // preset/style is affected.
+  if (grid.dotShape === 'speed_stripe') {
+    return computeSpeedStripeParticles(grid, wave, style, font, sdf, width, height, time, audioSignal, audioConfig);
+  }
+
   const particles: Particle[] = [];
 
   const isHex = grid.gridType === 'hexagonal';
@@ -976,6 +1930,8 @@ export function computeParticles(
         case 'high': sourceVal = audioSignal!.high; break;
         case 'overallEnergy': sourceVal = audioSignal!.rmsVolume; break;
         case 'beatPulse': sourceVal = audioSignal!.beatPulse ?? 0; break;
+        case 'vocal': sourceVal = audioSignal!.vocal ?? 0; break;
+        case 'fullMix': sourceVal = audioSignal!.fullMix ?? 0; break;
       }
       const delta = sourceVal * m.amount;
       if (m.target === 'particleSize') audioSizeDelta += delta * 0.8;
@@ -1708,6 +2664,88 @@ export function renderParticleToCanvas(ctx: CanvasRenderingContext2D, particle: 
       ctx.rect(-len / 2, -thick / 2, len, thick);
     }
     ctx.fill();
+  } else if (shape === 'original_stitch') {
+    // Culture — Original Stitch Pattern: exact geometry from the source sketch — a single rotated
+    // ellipse per stitch, no highlight stroke, no rounded-rect capsule (those belong to the other
+    // 'stitch'/'woven' shapes only). particle.width/height are p5-style diameters (ellipse(0,0,w,h)),
+    // so Canvas2D's radius-based ellipse() call halves them.
+    const w = particle.width ?? radius * 0.8;
+    const h = particle.height ?? radius * 2;
+    const angleRad = ((particle.angleDeg ?? 0) * Math.PI) / 180;
+
+    ctx.translate(x, y);
+    ctx.rotate(angleRad);
+
+    if (particle.customLayers && particle.assignedLayerIndices) {
+      // Uploaded SVG logo, reusing the SAME cached-image draw path as the 'custom_svg' dotShape —
+      // but rotated by THIS stitch's own alternating angle (set above) rather than only the layer's
+      // static rotationOffset, so the woven look survives even when stitches render as a logo.
+      for (const idx of particle.assignedLayerIndices) {
+        const layer = particle.customLayers[idx];
+        if (!layer || layer.enabled === false) continue;
+
+        const layerColor =
+          layer.recolorMode === 'custom' ? layer.customColor || '#00F0FF' : fillColor;
+        const img = getOrCacheSvgImage(layer, layerColor);
+        const layerOpacity = particle.opacity * (layer.opacity ?? 1.0);
+
+        ctx.save();
+        ctx.globalAlpha = layerOpacity;
+        if (layer.rotationOffset) ctx.rotate((layer.rotationOffset * Math.PI) / 180);
+
+        if (img) {
+          let drawW = w;
+          let drawH = h;
+          if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+            const aspect = img.naturalWidth / img.naturalHeight;
+            if (aspect > 1) drawH = w / aspect;
+            else if (aspect < 1) drawW = h * aspect;
+          }
+          ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+        } else {
+          ctx.fillStyle = layerColor;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, w / 2, h / 2, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+    } else {
+      ctx.fillStyle = fillColor;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, w / 2, h / 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (shape === 'typography_box') {
+    // News — Typography Box Material: rounded box + centered word, one material unit. Fill, stroke,
+    // and text all inherit ctx.globalAlpha (set from particle.opacity at the top of this function), so
+    // all three fade together with the ripple — never just the background (task item 4).
+    const w = particle.width ?? radius * 3;
+    const h = particle.height ?? radius * 2;
+    const cr = Math.min(particle.cornerRadius ?? 50, Math.min(w, h) / 2);
+
+    ctx.translate(x, y);
+    ctx.beginPath();
+    if ('roundRect' in ctx && typeof ctx.roundRect === 'function') {
+      ctx.roundRect(-w / 2, -h / 2, w, h, cr);
+    } else {
+      ctx.rect(-w / 2, -h / 2, w, h);
+    }
+    if (particle.isFilled) {
+      ctx.fillStyle = fillColor;
+      ctx.fill();
+    }
+    ctx.strokeStyle = particle.strokeColor || '#000000';
+    ctx.lineWidth = particle.strokeWidth ?? 3;
+    ctx.stroke();
+
+    if (particle.char) {
+      ctx.font = `bold ${particle.fontSize || 52}px "${particle.fontFamily || 'Arial'}", sans-serif`;
+      ctx.fillStyle = particle.glyphColor || '#000000';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(particle.char.toUpperCase(), 0, h * 0.02);
+    }
   } else if (shape === 'modular_strip') {
     // Flat, hard-edged vertical color block — no rotation, no soft gradient, per the
     // "flat editorial color blocks" form language of the Modular Signal Field mode.
@@ -1964,6 +3002,112 @@ export function renderParticleToSVG(
     rect.setAttribute('opacity', opacity.toFixed(2));
     rect.setAttribute('transform', `translate(${x.toFixed(2)}, ${y.toFixed(2)}) rotate(${angleDeg.toFixed(1)})`);
     svgGroup.appendChild(rect);
+  } else if (shape === 'original_stitch') {
+    // Culture — Original Stitch Pattern: exact rotated-ellipse geometry, matching the Canvas branch.
+    const w = particle.width ?? radius * 0.8;
+    const h = particle.height ?? radius * 2;
+    const angleDeg = particle.angleDeg ?? 0;
+
+    if (particle.customLayers && particle.assignedLayerIndices) {
+      // Uploaded SVG logo — same vector embedding as the 'custom_svg' export branch below, nested
+      // inside the stitch's own alternating-angle rotation so the woven look survives in exports too.
+      for (const idx of particle.assignedLayerIndices) {
+        const layer = particle.customLayers[idx];
+        if (!layer || layer.enabled === false) continue;
+
+        const layerColor = layer.recolorMode === 'custom' ? layer.customColor || '#00F0FF' : fillColor;
+        const targetColor = layer.recolorMode === 'original' ? null : layerColor;
+        const processedXml = recolorSvgXml(layer.svgXml, targetColor, layer.recolorMode);
+        const layerOpacity = opacity * (layer.opacity ?? 1.0);
+        const layerRot = layer.rotationOffset ?? 0;
+
+        const layerG = svgDoc.createElementNS(SVG_NS, 'g');
+        layerG.setAttribute('opacity', layerOpacity.toFixed(2));
+
+        try {
+          const parser = new DOMParser();
+          const parsedDoc = parser.parseFromString(processedXml, 'image/svg+xml');
+          const svgEl = parsedDoc.querySelector('svg');
+          if (svgEl) {
+            const viewBox = svgEl.getAttribute('viewBox');
+            const baseTransform = `translate(${x.toFixed(2)}, ${y.toFixed(2)}) rotate(${(angleDeg + layerRot).toFixed(1)})`;
+            if (viewBox) {
+              const parts = viewBox.split(/[\s,]+/).map(Number);
+              if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) {
+                const maxDim = Math.max(parts[2], parts[3]);
+                const scaleFactorX = w / maxDim;
+                const scaleFactorY = h / maxDim;
+                layerG.setAttribute(
+                  'transform',
+                  `${baseTransform} scale(${scaleFactorX.toFixed(4)}, ${scaleFactorY.toFixed(4)}) translate(${(-parts[0] - parts[2] / 2).toFixed(2)}, ${(-parts[1] - parts[3] / 2).toFixed(2)})`
+                );
+              } else {
+                layerG.setAttribute('transform', `${baseTransform} scale(${(w / 100).toFixed(4)}, ${(h / 100).toFixed(4)}) translate(-50, -50)`);
+              }
+            } else {
+              layerG.setAttribute('transform', `${baseTransform} scale(${(w / 100).toFixed(4)}, ${(h / 100).toFixed(4)}) translate(-50, -50)`);
+            }
+
+            for (const child of Array.from(svgEl.childNodes)) {
+              if (child.nodeType === Node.ELEMENT_NODE) {
+                layerG.appendChild(svgDoc.importNode(child, true));
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('SVG parse error for export:', e);
+        }
+
+        svgGroup.appendChild(layerG);
+      }
+    } else {
+      const ellipse = svgDoc.createElementNS(SVG_NS, 'ellipse');
+      ellipse.setAttribute('cx', '0');
+      ellipse.setAttribute('cy', '0');
+      ellipse.setAttribute('rx', (w / 2).toFixed(2));
+      ellipse.setAttribute('ry', (h / 2).toFixed(2));
+      ellipse.setAttribute('fill', fillColor);
+      ellipse.setAttribute('opacity', opacity.toFixed(2));
+      ellipse.setAttribute('transform', `translate(${x.toFixed(2)}, ${y.toFixed(2)}) rotate(${angleDeg.toFixed(1)})`);
+      svgGroup.appendChild(ellipse);
+    }
+  } else if (shape === 'typography_box') {
+    // News — Typography Box Material: rect + text wrapped in one <g opacity> so fill/stroke/text all
+    // fade together in exports too, matching the Canvas branch.
+    const w = particle.width ?? radius * 3;
+    const h = particle.height ?? radius * 2;
+    const cr = Math.min(particle.cornerRadius ?? 50, Math.min(w, h) / 2);
+
+    const g = svgDoc.createElementNS(SVG_NS, 'g');
+    g.setAttribute('opacity', opacity.toFixed(3));
+    g.setAttribute('transform', `translate(${x.toFixed(2)}, ${y.toFixed(2)})`);
+
+    const rect = svgDoc.createElementNS(SVG_NS, 'rect');
+    rect.setAttribute('x', (-w / 2).toFixed(2));
+    rect.setAttribute('y', (-h / 2).toFixed(2));
+    rect.setAttribute('width', w.toFixed(2));
+    rect.setAttribute('height', h.toFixed(2));
+    rect.setAttribute('rx', cr.toFixed(2));
+    rect.setAttribute('fill', particle.isFilled ? fillColor : 'none');
+    rect.setAttribute('stroke', particle.strokeColor || '#000000');
+    rect.setAttribute('stroke-width', (particle.strokeWidth ?? 3).toFixed(2));
+    g.appendChild(rect);
+
+    if (particle.char) {
+      const textEl = svgDoc.createElementNS(SVG_NS, 'text');
+      textEl.setAttribute('x', '0');
+      textEl.setAttribute('y', '0');
+      textEl.setAttribute('font-family', `${particle.fontFamily || 'Arial'}, sans-serif`);
+      textEl.setAttribute('font-size', (particle.fontSize || 52).toFixed(1));
+      textEl.setAttribute('font-weight', 'bold');
+      textEl.setAttribute('fill', particle.glyphColor || '#000000');
+      textEl.setAttribute('text-anchor', 'middle');
+      textEl.setAttribute('dominant-baseline', 'central');
+      textEl.textContent = particle.char.toUpperCase();
+      g.appendChild(textEl);
+    }
+
+    svgGroup.appendChild(g);
   } else if (shape === 'modular_strip') {
     const w = particle.width ?? radius * 2;
     const h = particle.height ?? radius * 4;

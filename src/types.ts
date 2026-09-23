@@ -14,7 +14,11 @@ export type DotShape =
   | 'stitch'
   | 'woven'
   | 'magnetic_needle'
-  | 'modular_strip';
+  | 'modular_strip'
+  | 'original_stitch'
+  | 'typography_box'
+  | 'mesh_net'
+  | 'speed_stripe';
 
 export type WaveMode = 'stable' | 'flow';
 export type WavePattern = 'circular' | 'linear' | 'spiral' | 'interference' | 'market_chart' | 'radial_3d';
@@ -173,7 +177,7 @@ export interface GridConfig {
   lineDirection?: 'tangent' | 'radial' | 'linear';
   lineAngle?: number; // 0 to 360 deg
   // Culture & Stitch materiality parameters
-  culturalMaterial?: 'stitch' | 'woven' | 'textile_loom' | 'sashiko';
+  culturalMaterial?: 'stitch' | 'woven' | 'textile_loom' | 'sashiko' | 'original_stitch';
   stitchLength?: number; // 3 to 35 px
   stitchThickness?: number; // 1 to 8 px
   stitchAngleMode?: StitchAngleMode;
@@ -189,6 +193,12 @@ export interface GridConfig {
   modularStrip?: ModularStripConfig;
   // Typography Radial Ripple (Breaking Signal redesign #2) — used when compositionMode === 'typography_ripple'
   typographyRipple?: TypographyRippleConfig;
+  // Typography Box Material (News) — used when dotShape === 'typography_box'
+  typographyBox?: TypographyBoxConfig;
+  // Sine Mesh Net (Sports) — used when dotShape === 'mesh_net'
+  meshNet?: MeshNetConfig;
+  // Speed Stripe Field (Sports) — used when dotShape === 'speed_stripe'
+  speedStripe?: SpeedStripeConfig;
 }
 
 /**
@@ -239,6 +249,116 @@ export interface TypographyRippleConfig {
   paragraphGap: number; // px, extra vertical gap between paragraphs
   verticalPulseStrength: number; // px, extra vertical bounce riding the ripple envelope
   blockScaleAmount: number; // 0..1, how much each block scales up as the ripple passes through it
+}
+
+/**
+ * Typography Box Material (News): a cached grid of word-labelled rounded-rect boxes — the user's
+ * original p5.js material, ported verbatim (word list, palette, font, box geometry, filled/outlined
+ * distribution) — with its independent sequential reveal animation (currentBox/progress/boxData.pop)
+ * removed and replaced by sampling the SAME wave engine (calculateWave) every other material uses, at
+ * each box's center, to drive opacity. Box geometry/text/colors are generated once and cached (see
+ * buildTypographyBoxItems in particleRenderer.ts); only opacity is recomputed per frame.
+ */
+export interface TypographyBoxConfig {
+  words: string[];
+  colorPalette: string[];
+  fontFamily: string;
+  fontSize: number; // px, default 52
+  boxHeight: number; // px, default 75
+  horizontalPadding: number; // px added to measured text width per box, default 40
+  marginX: number; // px gap between boxes on the same row, default 20
+  marginY: number; // px gap between rows, default 20
+  cornerRadius: number; // px — used when cornerRadiusMode is 'uniform': 0 = sharp rect, ~50 = original pill-rounded
+  cornerRadiusMode: 'uniform' | 'random'; // 'random' picks each box's own radius (cached, not per-frame)
+  cornerRadiusMin: number; // px — random mode lower bound (0 = some boxes come out as plain rectangles)
+  cornerRadiusMax: number; // px — random mode upper bound
+  filledRatio: number; // 0..1 probability a box is solid-filled vs outline-only, default 0.5 (matches original's 50%)
+  strokeColor: string; // default #000000
+  textColor: string; // default #000000
+  strokeWidth: number; // px, default 3
+
+  // Ripple Response (task item 7) — how the wave engine's per-point intensity maps to this box's opacity
+  baseOpacity: number; // resting opacity when Ripple Opacity Influence is low/zero
+  minOpacity: number; // opacity floor while a wave IS passing through (at the weakest point of its influence)
+  maxOpacity: number; // opacity ceiling at the peak of the wavefront
+  opacityInfluence: number; // 0..1 — blends between baseOpacity (0) and the full ripple-driven range (1)
+  opacitySoftness: number; // 0..1 — width of the smooth on/off transition band around the ripple threshold
+  invertOpacity: boolean; // when true, boxes dim where the wave is strongest instead of lighting up
+}
+
+/**
+ * Sine Mesh Net (Sports): a wireframe grid ("net") whose intersections are displaced by the SAME
+ * wave engine every other material uses (calculateWave), so a ball-impact feel comes from the
+ * existing circular wave pattern rippling outward from the existing Ripple Origin — not a bespoke
+ * physics system. Deliberately does NOT duplicate fields the WAVE tab already owns: Wave
+ * Frequency/Speed/Amplitude drive the sine motion, Origin X/Y is the "impact point," Radial
+ * Thickness is the impact falloff, and Wave Pattern picks the wave direction (circular = radial
+ * impact ripple, linear = a directional sweep across the net). This config only holds what's
+ * genuinely specific to the mesh itself: its geometry and how strongly/how it reads the wave.
+ */
+export interface MeshNetConfig {
+  meshWidth: number; // 0..1, fraction of canvas width the net spans
+  meshHeight: number; // 0..1, fraction of canvas height the net spans
+  densityX: number; // number of mesh columns
+  densityY: number; // number of mesh rows
+  lineThickness: number; // px
+  showNodes: boolean;
+  nodeSize: number; // px radius at each intersection
+  curvature: number; // 0..1, vertical sag (hanging-net bow) applied to the flat base grid
+  perspectiveAmount: number; // 0..1, simulated tilt/depth (rows scale as they recede)
+  displacementStrength: number; // multiplier on the wave engine's displacement vector at each node
+  damping: number; // 0..1, how much displacement fades from the mesh's own center outward
+  lineColor: string;
+  nodeColor: string;
+  accentColor: string; // blended in at strongly-displaced nodes/lines for an impact "glow"
+  lineOpacity: number; // 0..1 base opacity
+  glowIntensity: number; // 0..1, how much displacement strength boosts opacity + accent blend
+}
+
+export type SpeedStripeVariationMode = 'uniform' | 'scaled' | 'staggered' | 'alternating' | 'wave_activated';
+
+/**
+ * Speed Stripe Field (Sports): a field of diagonal, sharp-cornered dash units (rendered with the
+ * existing 'tile' particle shape — a rotated rectangle, already used by Style 09 Kinetic Tile Vortex,
+ * so no new Canvas/SVG rendering code was needed). Every dash samples the SAME wave engine
+ * (calculateWave) every other material uses at its own center — Wave Frequency/Speed/Amplitude/Origin/
+ * Pattern from the WAVE tab remain the single source of the ripple itself. This config only holds what
+ * a diagonal-dash field needs on top of that: its own geometry, and how strongly/which way it reads
+ * the wave (displacement, opacity, scale, and an extra directional "stagger" that time-shifts each
+ * dash's own calculateWave() call — a sweep purely through the existing wave engine, not a second
+ * motion system).
+ */
+export interface SpeedStripeConfig {
+  // Pattern / Form
+  dashAngle: number; // deg, default 35
+  dashWidth: number; // px, dash length along its own long axis, default 52
+  dashHeight: number; // px, dash thickness, default 16
+  spacingX: number; // px, extra gap subtracted from each column's pitch, default 6
+  spacingY: number; // px, extra gap subtracted from each row's pitch, default 6
+  rowOffset: number; // 0..1, horizontal brick-stagger fraction applied to alternating rows, default 0.5
+  columnCount: number; // dash columns across the field, default 12
+  rowCount: number; // dash rows down the field, default 9
+  fieldWidth: number; // 0..1, fraction of canvas width the field spans, default 0.72
+  fieldHeight: number; // 0..1, fraction of canvas height the field spans, default 0.5
+  scaleProgression: number; // -1..1, static dash size growth(+)/shrink(-) across columns, default 0
+
+  // Motion / Ripple Response
+  variationMode: SpeedStripeVariationMode; // default 'wave_activated'
+  rippleInfluence: number; // 0..1, master gate on how strongly the wave signal registers at all, default 0.9
+  animSpeed: number; // multiplier on the time fed into calculateWave for this material, default 1.0
+  displacementAmount: number; // multiplier on the wave engine's displacement vector applied to each dash, default 0.25
+  opacityInfluence: number; // 0..1, blends baseOpacity (0) with the full ripple-driven opacity range (1), default 0.6
+  scalePulseAmount: number; // 0..1, how much a dash grows at the peak of the wave, default 0.3
+  staggerAmount: number; // 0..1, extra directional delay (time-shift) across the field, default 0.5
+  motionDirection: number; // deg, direction the stagger sweep travels, default 0 (left -> right)
+
+  // Style
+  primaryColor: string; // default '#FFF200'
+  secondaryColor: string; // used by 'alternating' rows and as the wave-impact flash color, default '#000000'
+  baseOpacity: number; // resting opacity when Opacity Influence is low/zero, default 0.85
+  minOpacity: number; // opacity floor while ripple-driven, default 0.3
+  maxOpacity: number; // opacity ceiling at wave peak, default 1.0
+  contrast: number; // 0..2, sharpens (>1) or flattens (<1) the wave-strength curve, default 1.0
 }
 
 export interface WaveConfig {
@@ -324,6 +444,13 @@ export interface StyleConfig {
   constellationLineColor?: string;
   constellationShowLabels?: boolean;
   constellationClusterStrength?: number;
+  // Explicit master toggle for dot-to-dot connection/edge lines (Data Constellation style only —
+  // gated together with `visualStyle === 'data_constellation'`, see KineticCanvas.tsx/exportSvg.ts).
+  // Default false: connection lines never render unless a user explicitly picks the Data
+  // Constellation style AND leaves/turns this on. Previously `constellationMaxDistance > 0` alone
+  // (a leftover non-zero default/copy-pasted preset field) could trigger lines on styles that were
+  // never meant to have them — this flag removes that leak.
+  showConnections?: boolean;
   vortexTwist?: number; // 0 to 3.0 (swirl strength)
   pixelArtScale?: number; // 4 to 32 px
   // Feature A & Style 03: Separate Headline / Molecule Wave Only parameters
@@ -427,7 +554,7 @@ export interface KVLayoutConfig {
 // ============================================================================
 
 export interface AudioMappingConfig {
-  source: 'bass' | 'mid' | 'high' | 'overallEnergy' | 'beatPulse';
+  source: 'bass' | 'mid' | 'high' | 'overallEnergy' | 'beatPulse' | 'vocal' | 'fullMix';
   target:
     | 'waveAmplitude'
     | 'waveSpeed'
@@ -458,7 +585,56 @@ export type RippleSequenceMode = 'single' | 'cascade' | 'alternate' | 'freq_band
 export type AudioColorShiftMode = 'p5_inverted' | 'accent_glow' | 'spectrum_shift';
 export type AudioSourceType = 'none' | 'mic' | 'synth' | 'file';
 export type SynthStyle = 'electro' | 'lofi' | 'techno';
-export type AudioRippleBand = 'overall' | 'bass' | 'mid' | 'beatPulse';
+export type AudioRippleBand = 'overall' | 'bass' | 'mid' | 'beatPulse' | 'vocal' | 'fullMix';
+
+/**
+ * Vocal Mode (task: "Fix False Vocal Detection") —
+ *   'off'          — no vocal-driven modulation.
+ *   'auto_detect'  — the heuristic Vocal Detector gates vocal-band energy; ripple only reacts once
+ *                     detection confidence clears the hysteresis ON threshold for minVocalDuration.
+ *   'isolated'     — use a separated vocal stem's energy instead of full-mix vocal-band energy.
+ *                     ALWAYS reports 'unavailable' in this build (see vocalStemStatus doc) — no
+ *                     source-separation engine is bundled, so this mode intentionally produces zero
+ *                     ripple influence rather than silently falling back to the unreliable full-mix
+ *                     band reading and calling it "isolated."
+ */
+export type VocalMode = 'off' | 'auto_detect' | 'isolated';
+
+/**
+ * Vocal Reactivity — analyzes a configurable vocal-relevant frequency range (default ~150-4000Hz)
+ * of the SAME analyser buffer the rest of the engine already reads (no second AudioContext/loop).
+ *
+ * IMPORTANT — Detection vs Energy (see utils/audioAnalyzer.ts):
+ * Vocal-band energy alone is NOT proof of vocal presence — synths, guitars and pianos occupy the
+ * same 150-4000Hz range. Detection (`vocalConfidence`/`vocalDetected` on AudioAnalysisData) is
+ * computed SEPARATELY from energy, using a multi-feature DSP heuristic (pitch-periodicity/
+ * harmonicity via autocorrelation, syllabic-rate 2-6Hz amplitude-modulation strength, and vocal-
+ * formant-band spectral concentration) combined into a 0..1 confidence score. This is a heuristic
+ * estimator, NOT a trained singing-voice classifier or ML model — no such model is bundled in this
+ * build (would require a large pretrained network, e.g. a converted YAMNet/CREPE-class model, that
+ * could not be reliably fetched/verified in this environment). It is meaningfully more reliable
+ * than plain mid-band energy thresholding, but false positives/negatives on unusual timbres are
+ * still possible — do not treat `vocalConfidence` as ground truth. Only in 'auto_detect' mode does
+ * confidence GATE automatic ripple modulation (see vocalRippleInfluence); the raw energy remains
+ * available as a manual 'vocal' Parameter Mapping source regardless of detection.
+ */
+export interface VocalReactivityConfig {
+  mode: VocalMode;
+  sensitivity: number; // 0.1..3, pre-normalization gain on the raw vocal-band energy
+  freqLow: number; // Hz, default 150
+  freqHigh: number; // Hz, default 4000
+  attack: number; // 0..1 — how fast the envelope rises on new vocal energy
+  release: number; // 0..1 — how fast the envelope relaxes on silence/pauses between phrases
+  influence: number; // 0..1 — master strength of vocal envelope on ripple amplitude/thickness/displacement
+  adaptiveNormalization: boolean; // auto-tracks a rolling noise floor + peak so quiet vocals still register
+
+  // Vocal DETECTION (separate from energy) — hysteresis gating so short instrumental transients
+  // don't repeatedly flip Vocal Mode on/off.
+  confidenceThresholdOn: number; // 0..1 — confidence must clear this to START being "detected"
+  confidenceThresholdOff: number; // 0..1, < On — confidence must drop below this to STOP
+  minVocalDuration: number; // seconds — confidence must stay above the ON threshold this long before detection is confirmed (rejects single-frame flukes)
+  detectionSmoothing: number; // 0..1 — smooths the raw per-frame confidence score itself before hysteresis
+}
 
 export interface AudioConfig {
   enabled: boolean; // Master Audio Reactivity toggle — OFF by default for every existing preset.
@@ -517,6 +693,9 @@ export interface AudioConfig {
 
   // Parameter mapping matrix
   mappings: AudioMappingConfig[];
+
+  // Vocal Reactivity — see VocalReactivityConfig doc comment
+  vocalReactivity: VocalReactivityConfig;
 }
 
 export interface AudioAnalysisData {
@@ -530,6 +709,15 @@ export interface AudioAnalysisData {
   bass: number;
   mid: number;
   high: number;
+  vocal: number; // smoothed, adaptively-normalized vocal-band envelope (see VocalReactivityConfig)
+  vocalRaw: number; // pre-envelope, pre-normalization vocal-band reading — for debugging a weak signal
+  fullMix: number; // combined band+RMS energy, no beat gating required
+  // Vocal DETECTION (separate from vocal-band ENERGY above — see VocalReactivityConfig doc comment)
+  vocalConfidence: number; // 0..1 heuristic vocal-presence likelihood — NOT a trained-model score
+  vocalDetected: boolean; // post-hysteresis, post-min-duration gated detection state
+  vocalDetectionMethod: 'heuristic'; // reserved for a future 'model' method if one is ever bundled
+  vocalStemStatus: 'unavailable'; // isolated-stem source separation is not implemented in this build
+  vocalRippleInfluence: number; // the FINAL, already-gated multiplier actually applied to the ripple this frame
   beatDetected: boolean;
   beatStrength: number;
   beatPulse: number;

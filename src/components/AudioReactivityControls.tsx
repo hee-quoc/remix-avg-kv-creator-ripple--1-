@@ -43,6 +43,14 @@ const IDLE_ANALYSIS: AudioAnalysisData = {
   bass: 0,
   mid: 0,
   high: 0,
+  vocal: 0,
+  vocalRaw: 0,
+  fullMix: 0,
+  vocalConfidence: 0,
+  vocalDetected: false,
+  vocalDetectionMethod: 'heuristic',
+  vocalStemStatus: 'unavailable',
+  vocalRippleInfluence: 0,
   beatDetected: false,
   beatStrength: 0,
   beatPulse: 0,
@@ -415,6 +423,7 @@ export const AudioReactivityControls: React.FC<AudioReactivityControlsProps> = (
             ['BASS', analysis.bass, 'from-rose-500 to-pink-500'],
             ['MID', analysis.mid, 'from-sky-500 to-cyan-400'],
             ['HIGH', analysis.high, 'from-purple-500 to-fuchsia-400'],
+            ['VOCAL', analysis.vocal, 'from-amber-500 to-orange-400'],
             ['ENERGY', analysis.overallEnergy, 'from-emerald-500 to-lime-400']
           ] as [string, number, string][]).map(([label, val, grad]) => (
             <div key={label} className="flex items-center justify-between text-[9px]">
@@ -438,6 +447,16 @@ export const AudioReactivityControls: React.FC<AudioReactivityControlsProps> = (
             </span>
           </div>
           <span className="text-[9px] text-[#888]">Pulse {Math.round(analysis.beatPulse * 100)}%</span>
+        </div>
+
+        {/* Debug: distinguishes a weak upstream signal (raw vocal-band reading near zero) from a
+            valid signal that simply isn't reaching the renderer (Audio Reactivity master OFF). */}
+        <div className="flex items-center justify-between pt-2 border-t border-[#1a1a1a] text-[8px] text-[#777]">
+          <span>Vocal energy: <span className="text-[#aaa]">{Math.round(analysis.vocalRaw * 100)}%</span></span>
+          <span>Full Mix: <span className="text-[#aaa]">{Math.round(analysis.fullMix * 100)}%</span></span>
+          <span className={audio.enabled ? 'text-emerald-400' : 'text-rose-400'}>
+            {audio.enabled ? '→ Engine: LIVE' : '→ Engine: OFF (enable above)'}
+          </span>
         </div>
 
         {/* Global sensitivity / smoothing + beat detection */}
@@ -538,9 +557,9 @@ export const AudioReactivityControls: React.FC<AudioReactivityControlsProps> = (
           <input type="range" min={150} max={1500} step={25} value={audio.audioRippleWavelength} onChange={(e) => updateAudio({ audioRippleWavelength: parseFloat(e.target.value) })} className="w-full h-[2px] bg-[#222] appearance-none cursor-pointer accent-[#00F0FF]" />
         </div>
         <div>
-          <label className="block text-[9px] text-[#888] uppercase mb-1">Frequency Band</label>
-          <div className="grid grid-cols-4 gap-1">
-            {(['overall', 'bass', 'mid', 'beatPulse'] as const).map((b) => (
+          <label className="block text-[9px] text-[#888] uppercase mb-1">Audio Response Source</label>
+          <div className="grid grid-cols-3 gap-1">
+            {(['overall', 'bass', 'mid', 'vocal', 'beatPulse', 'fullMix'] as const).map((b) => (
               <button
                 key={b}
                 type="button"
@@ -549,10 +568,13 @@ export const AudioReactivityControls: React.FC<AudioReactivityControlsProps> = (
                   (audio.audioRippleBand || 'overall') === b ? 'bg-[#00F0FF]/20 border-[#00F0FF]/50 text-[#00F0FF]' : 'bg-[#121212] border-[#222] text-[#888] hover:text-white'
                 }`}
               >
-                {b === 'beatPulse' ? 'beat' : b}
+                {b === 'beatPulse' ? 'beat' : b === 'fullMix' ? 'full mix' : b}
               </button>
             ))}
           </div>
+          <p className="text-[8px] text-[#666] font-sans mt-1">
+            Full Mix combines every band + RMS without needing a bass beat to trigger a response.
+          </p>
         </div>
         <div>
           <label className="block text-[9px] text-[#888] uppercase mb-1">Harmonics</label>
@@ -652,6 +674,183 @@ export const AudioReactivityControls: React.FC<AudioReactivityControlsProps> = (
         )}
       </Section>
 
+      {/* 4B. VOCAL REACTIVITY */}
+      <Section
+        title="Vocal Reactivity"
+        icon={<Mic className="w-3.5 h-3.5" />}
+        accent="#f59e0b"
+        rightSlot={
+          <span
+            className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase border ${
+              audio.vocalReactivity.mode === 'off'
+                ? 'bg-[#181818] text-[#666] border-[#333]'
+                : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+            }`}
+          >
+            {audio.vocalReactivity.mode === 'off' ? 'OFF' : audio.vocalReactivity.mode === 'auto_detect' ? 'AUTO' : 'ISOLATED'}
+          </span>
+        }
+      >
+        <p className="text-[9px] text-[#777] font-sans leading-relaxed">
+          Reacts to singing/speech, not just drums and bass. Detection is SEPARATE from energy: a
+          multi-feature heuristic (harmonicity + syllabic-rate ~2-6Hz modulation + vocal-formant
+          concentration) must confirm vocal presence before Auto Detect drives the ripple — plain
+          mid-frequency energy alone is never treated as proof of singing.
+        </p>
+        <p className="text-[8px] text-amber-300/80 font-sans leading-relaxed bg-amber-500/5 border border-amber-500/20 rounded px-2 py-1.5">
+          Detection method: DSP heuristic — NOT a trained ML singing-voice classifier, and no
+          pretrained model is bundled in this build. Meaningfully more reliable than raw mid-band
+          energy, but can still misfire on unusual instrumental timbres — watch the debug readout.
+        </p>
+
+        <div>
+          <label className="block text-[9px] text-[#888] uppercase mb-1">Vocal Mode</label>
+          <div className="grid grid-cols-3 gap-1.5">
+            {(
+              [
+                { id: 'off', label: 'Off', desc: 'No vocal-driven reactivity' },
+                { id: 'auto_detect', label: 'Auto Detect', desc: 'Heuristic classifier gates the ripple' },
+                { id: 'isolated', label: 'Isolated', desc: 'Separated vocal stem (unavailable in this build)' }
+              ] as { id: 'off' | 'auto_detect' | 'isolated'; label: string; desc: string }[]
+            ).map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => updateAudio({ vocalReactivity: { ...audio.vocalReactivity, mode: m.id } })}
+                title={m.desc}
+                className={`p-1.5 rounded border text-center transition-colors ${
+                  audio.vocalReactivity.mode === m.id
+                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 font-bold'
+                    : 'bg-[#121212] border-[#222] text-[#888] hover:text-white'
+                }`}
+              >
+                <span className="block text-[9px] font-bold uppercase">{m.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {audio.vocalReactivity.mode === 'isolated' && (
+          <div className="text-[9px] text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded px-2 py-1.5 font-sans leading-relaxed">
+            Isolated vocal stem: <b>UNAVAILABLE</b>. Source separation (splitting vocal/instrumental
+            stems) is not implemented in this build — it needs a large local ML model that couldn't
+            be reliably bundled/verified here. This mode intentionally produces zero ripple
+            influence rather than silently substituting the unreliable full-mix band reading and
+            labeling it "isolated."
+          </div>
+        )}
+
+        {audio.vocalReactivity.mode !== 'off' && (
+          <div className="space-y-2.5 pt-1 border-t border-[#1a1a1a]">
+            {/* Debug — distinguishes DETECTED presence from the ENERGY driving the ripple */}
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[8px] bg-[#0d0d12] border border-[#222] rounded p-2">
+              <span className="text-[#888]">Vocal Confidence</span>
+              <span className="text-amber-400 text-right">{Math.round(analysis.vocalConfidence * 100)}%</span>
+              <span className="text-[#888]">Detection Threshold (on/off)</span>
+              <span className="text-amber-400 text-right">
+                {Math.round(audio.vocalReactivity.confidenceThresholdOn * 100)}% / {Math.round(audio.vocalReactivity.confidenceThresholdOff * 100)}%
+              </span>
+              <span className="text-[#888]">Vocal Detected</span>
+              <span className={`text-right font-bold ${analysis.vocalDetected ? 'text-emerald-400' : 'text-[#666]'}`}>
+                {analysis.vocalDetected ? 'YES' : 'NO'}
+              </span>
+              <span className="text-[#888]">Vocal Energy</span>
+              <span className="text-amber-400 text-right">{Math.round(analysis.vocalRaw * 100)}%</span>
+              <span className="text-[#888]">Final Ripple Influence</span>
+              <span className="text-emerald-400 text-right">{Math.round(analysis.vocalRippleInfluence * 100)}%</span>
+            </div>
+
+            <div>
+              <div className="flex justify-between text-[9px] text-[#888] mb-1"><span>SENSITIVITY</span><span className="text-amber-400">{audio.vocalReactivity.sensitivity.toFixed(2)}x</span></div>
+              <input type="range" min={0.1} max={3} step={0.05} value={audio.vocalReactivity.sensitivity} onChange={(e) => updateAudio({ vocalReactivity: { ...audio.vocalReactivity, sensitivity: parseFloat(e.target.value) } })} className="w-full h-[2px] bg-[#222] appearance-none cursor-pointer accent-amber-500" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <div className="flex justify-between text-[9px] text-[#888] mb-1"><span>FREQ LOW</span><span className="text-amber-400">{Math.round(audio.vocalReactivity.freqLow)}Hz</span></div>
+                <input type="range" min={50} max={800} step={10} value={audio.vocalReactivity.freqLow} onChange={(e) => updateAudio({ vocalReactivity: { ...audio.vocalReactivity, freqLow: Math.min(parseFloat(e.target.value), audio.vocalReactivity.freqHigh - 50) } })} className="w-full h-[2px] bg-[#222] appearance-none cursor-pointer accent-amber-500" />
+              </div>
+              <div>
+                <div className="flex justify-between text-[9px] text-[#888] mb-1"><span>FREQ HIGH</span><span className="text-amber-400">{Math.round(audio.vocalReactivity.freqHigh)}Hz</span></div>
+                <input type="range" min={1000} max={8000} step={50} value={audio.vocalReactivity.freqHigh} onChange={(e) => updateAudio({ vocalReactivity: { ...audio.vocalReactivity, freqHigh: Math.max(parseFloat(e.target.value), audio.vocalReactivity.freqLow + 50) } })} className="w-full h-[2px] bg-[#222] appearance-none cursor-pointer accent-amber-500" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <div className="flex justify-between text-[9px] text-[#888] mb-1"><span>ATTACK</span><span className="text-amber-400">{audio.vocalReactivity.attack.toFixed(2)}</span></div>
+                <input type="range" min={0} max={1} step={0.02} value={audio.vocalReactivity.attack} onChange={(e) => updateAudio({ vocalReactivity: { ...audio.vocalReactivity, attack: parseFloat(e.target.value) } })} className="w-full h-[2px] bg-[#222] appearance-none cursor-pointer accent-amber-500" />
+              </div>
+              <div>
+                <div className="flex justify-between text-[9px] text-[#888] mb-1"><span>RELEASE</span><span className="text-amber-400">{audio.vocalReactivity.release.toFixed(2)}</span></div>
+                <input type="range" min={0} max={1} step={0.02} value={audio.vocalReactivity.release} onChange={(e) => updateAudio({ vocalReactivity: { ...audio.vocalReactivity, release: parseFloat(e.target.value) } })} className="w-full h-[2px] bg-[#222] appearance-none cursor-pointer accent-amber-500" />
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-[9px] text-[#888] mb-1"><span>INFLUENCE ON RIPPLE</span><span className="text-amber-400">{Math.round(audio.vocalReactivity.influence * 100)}%</span></div>
+              <input type="range" min={0} max={1} step={0.02} value={audio.vocalReactivity.influence} onChange={(e) => updateAudio({ vocalReactivity: { ...audio.vocalReactivity, influence: parseFloat(e.target.value) } })} className="w-full h-[2px] bg-[#222] appearance-none cursor-pointer accent-amber-500" />
+            </div>
+            <div className="flex items-center justify-between pt-1 border-t border-[#1a1a1a]">
+              <div>
+                <span className="block text-[9px] text-[#888] uppercase">Adaptive Normalization</span>
+                <span className="text-[8px] text-[#666]">Auto-tracks noise floor + peak so quiet vocals still register</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => updateAudio({ vocalReactivity: { ...audio.vocalReactivity, adaptiveNormalization: !audio.vocalReactivity.adaptiveNormalization } })}
+                className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase border shrink-0 ml-2 ${
+                  audio.vocalReactivity.adaptiveNormalization ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-[#181818] text-[#666] border-[#333]'
+                }`}
+              >
+                {audio.vocalReactivity.adaptiveNormalization ? 'ON' : 'OFF'}
+              </button>
+            </div>
+
+            {audio.vocalReactivity.mode === 'auto_detect' && (
+              <div className="space-y-2.5 pt-2 border-t border-[#1a1a1a]">
+                <span className="block text-[9px] text-[#888] uppercase">
+                  Vocal Detection (hysteresis — prevents rapid on/off toggling)
+                </span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="flex justify-between text-[9px] text-[#888] mb-1"><span>THRESHOLD ON</span><span className="text-amber-400">{Math.round(audio.vocalReactivity.confidenceThresholdOn * 100)}%</span></div>
+                    <input
+                      type="range" min={0.1} max={0.95} step={0.02}
+                      value={audio.vocalReactivity.confidenceThresholdOn}
+                      onChange={(e) => {
+                        const on = parseFloat(e.target.value);
+                        updateAudio({ vocalReactivity: { ...audio.vocalReactivity, confidenceThresholdOn: on, confidenceThresholdOff: Math.min(audio.vocalReactivity.confidenceThresholdOff, on - 0.03) } });
+                      }}
+                      className="w-full h-[2px] bg-[#222] appearance-none cursor-pointer accent-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-[9px] text-[#888] mb-1"><span>THRESHOLD OFF</span><span className="text-amber-400">{Math.round(audio.vocalReactivity.confidenceThresholdOff * 100)}%</span></div>
+                    <input
+                      type="range" min={0.02} max={0.9} step={0.02}
+                      value={audio.vocalReactivity.confidenceThresholdOff}
+                      onChange={(e) => {
+                        const off = parseFloat(e.target.value);
+                        updateAudio({ vocalReactivity: { ...audio.vocalReactivity, confidenceThresholdOff: Math.min(off, audio.vocalReactivity.confidenceThresholdOn - 0.03) } });
+                      }}
+                      className="w-full h-[2px] bg-[#222] appearance-none cursor-pointer accent-amber-500"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="flex justify-between text-[9px] text-[#888] mb-1"><span>MIN VOCAL DURATION</span><span className="text-amber-400">{audio.vocalReactivity.minVocalDuration.toFixed(2)}s</span></div>
+                    <input type="range" min={0} max={0.6} step={0.02} value={audio.vocalReactivity.minVocalDuration} onChange={(e) => updateAudio({ vocalReactivity: { ...audio.vocalReactivity, minVocalDuration: parseFloat(e.target.value) } })} className="w-full h-[2px] bg-[#222] appearance-none cursor-pointer accent-amber-500" />
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-[9px] text-[#888] mb-1"><span>DETECTION SMOOTHING</span><span className="text-amber-400">{audio.vocalReactivity.detectionSmoothing.toFixed(2)}</span></div>
+                    <input type="range" min={0.05} max={0.9} step={0.02} value={audio.vocalReactivity.detectionSmoothing} onChange={(e) => updateAudio({ vocalReactivity: { ...audio.vocalReactivity, detectionSmoothing: parseFloat(e.target.value) } })} className="w-full h-[2px] bg-[#222] appearance-none cursor-pointer accent-amber-500" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Section>
+
       {/* 5. PARAMETER MAPPING */}
       <Section title="Parameter Mapping" icon={<GitBranch className="w-3.5 h-3.5" />}>
         <p className="text-[9px] text-[#777] font-sans leading-relaxed">
@@ -670,8 +869,10 @@ export const AudioReactivityControls: React.FC<AudioReactivityControlsProps> = (
                   <option value="bass">Bass</option>
                   <option value="mid">Mid</option>
                   <option value="high">High</option>
+                  <option value="vocal">Vocal Range</option>
                   <option value="overallEnergy">Overall Energy</option>
                   <option value="beatPulse">Beat Pulse</option>
+                  <option value="fullMix">Full Mix</option>
                 </select>
                 <span className="text-[#555]">→</span>
                 <select

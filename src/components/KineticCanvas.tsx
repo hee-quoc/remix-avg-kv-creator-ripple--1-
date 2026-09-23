@@ -46,7 +46,10 @@ function buildExportAudioSignal(state: RenderState) {
       beatPulse: data.beatPulse,
       smoothedBeatIntensity: data.smoothedBeatIntensity,
       secondWavePhase: data.secondWavePhase,
-      volumeHistory: data.volumeHistory
+      volumeHistory: data.volumeHistory,
+      vocal: data.vocal,
+      fullMix: data.fullMix,
+      vocalRippleInfluence: data.vocalRippleInfluence
     },
     audioConfigForWave: state.audio
   };
@@ -300,7 +303,10 @@ export const KineticCanvas: React.FC<KineticCanvasProps> = ({
             beatPulse: audioData.beatPulse,
             smoothedBeatIntensity: audioData.smoothedBeatIntensity,
             secondWavePhase: audioData.secondWavePhase,
-            volumeHistory: audioData.volumeHistory
+            volumeHistory: audioData.volumeHistory,
+            vocal: audioData.vocal,
+            fullMix: audioData.fullMix,
+            vocalRippleInfluence: audioData.vocalRippleInfluence
           }
         : undefined;
       const audioConfigForWave = audioReactivityOn ? currentState.audio : undefined;
@@ -363,11 +369,10 @@ export const KineticCanvas: React.FC<KineticCanvasProps> = ({
         renderKVLayoutToCanvas(ctx, currentState.kvLayout, DESIGN_WIDTH, DESIGN_HEIGHT, currentState.kvLayout?.selectedElementId);
       }
 
-      // Optional Data Constellation connecting lines
-      if (
-        currentState.style.visualStyle === 'data_constellation' ||
-        (currentState.style.constellationMaxDistance && currentState.style.constellationMaxDistance > 0)
-      ) {
+      // Optional Data Constellation connecting lines — strictly gated on the Data Constellation
+      // visual style itself (never a leftover/copy-pasted constellationMaxDistance value alone) AND
+      // the explicit Show Connections toggle, which defaults to false.
+      if (currentState.style.visualStyle === 'data_constellation' && currentState.style.showConnections) {
         renderConstellationLinesToCanvas(
           ctx,
           particles,
@@ -661,7 +666,7 @@ export const KineticCanvas: React.FC<KineticCanvasProps> = ({
       renderKVLayoutToCanvas(ctx, state.kvLayout, DESIGN_WIDTH, DESIGN_HEIGHT);
     }
 
-    if (state.style.visualStyle === 'data_constellation' || (state.style.constellationMaxDistance && state.style.constellationMaxDistance > 0)) {
+    if (state.style.visualStyle === 'data_constellation' && state.style.showConnections) {
       renderConstellationLinesToCanvas(
         ctx,
         fullQualityParticles,

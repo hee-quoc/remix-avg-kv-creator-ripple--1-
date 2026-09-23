@@ -15,6 +15,9 @@ import { AsciiControls } from './AsciiControls';
 import { TangentLineControls } from './TangentLineControls';
 import { ModularStripControls } from './ModularStripControls';
 import { TypographyRippleControls } from './TypographyRippleControls';
+import { TypographyBoxControls } from './TypographyBoxControls';
+import { MeshNetControls } from './MeshNetControls';
+import { SpeedStripeControls } from './SpeedStripeControls';
 import { StitchCraftControls } from './StitchCraftControls';
 import { MultiColorDotControls } from './MultiColorDotControls';
 import {
@@ -242,11 +245,16 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
                 <label className="block text-[#888888] font-mono text-[11px] uppercase tracking-wider">
                   01_TEXT_INPUT
                 </label>
-                {(!state.font.maskMode || state.font.maskMode === 'text') && (
-                  <span className="text-[9px] text-[#00F0FF] font-mono uppercase font-bold">
-                    [ACTIVE MASK]
-                  </span>
-                )}
+                {(!state.font.maskMode || state.font.maskMode === 'text') &&
+                  state.compositionMode !== 'typography_ripple' &&
+                  state.grid.dotShape !== 'original_stitch' &&
+                  state.grid.dotShape !== 'typography_box' &&
+                  state.grid.dotShape !== 'mesh_net' &&
+                  state.grid.dotShape !== 'speed_stripe' && (
+                    <span className="text-[9px] text-[#00F0FF] font-mono uppercase font-bold">
+                      [ACTIVE MASK]
+                    </span>
+                  )}
               </div>
               <textarea
                 value={state.font.text}
@@ -260,6 +268,44 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
                 className="w-full bg-[#0A0A0A] border border-[#222] rounded p-2.5 text-[#E0E0E0] font-mono font-bold focus:outline-none focus:border-[#00F0FF] transition-colors placeholder-[#444]"
                 placeholder="Type kinetic text..."
               />
+              {state.compositionMode === 'typography_ripple' && (
+                <p className="text-[9px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5 mt-1.5 leading-relaxed">
+                  This preset's visible characters come from its own paragraph text instead — edit
+                  them from the GRID tab's "Typography Ripple" panel. This field is not used by the
+                  current composition mode.
+                </p>
+              )}
+              {state.grid.dotShape === 'original_stitch' && (
+                <p className="text-[9px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5 mt-1.5 leading-relaxed">
+                  The Original Stitch Pattern fills the whole canvas edge-to-edge by default (matching
+                  its source design exactly). To make it follow this text — or an SVG logo set as
+                  Object Mask below — turn on <b>HIDE BG DOTS</b> (header bar or GRID tab): stitches
+                  outside the text/logo silhouette disappear, revealing the shape in the weave.
+                </p>
+              )}
+              {state.grid.dotShape === 'typography_box' && (
+                <p className="text-[9px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5 mt-1.5 leading-relaxed">
+                  The Typography Box Material has its own word list, not this field — edit it from the
+                  GRID tab's "Typography Box Material" panel. This field is not used by the current shape.
+                </p>
+              )}
+              {state.grid.dotShape === 'mesh_net' && (
+                <p className="text-[9px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5 mt-1.5 leading-relaxed">
+                  Sine Mesh Net fills its own area by default — this field has no effect until you turn
+                  on <b>HIDE BG DOTS</b> (header bar or GRID tab), which clips the net to this text (or
+                  an SVG logo set as Object Mask below) instead. Edit the net itself from the GRID tab's
+                  "Sine Mesh Net" panel; its motion comes from the WAVE tab (Ripple Origin = impact point).
+                </p>
+              )}
+              {state.grid.dotShape === 'speed_stripe' && (
+                <p className="text-[9px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5 mt-1.5 leading-relaxed">
+                  Speed Stripe Field fills its own rectangular area by default — this field has no
+                  effect until you turn on <b>HIDE BG DOTS</b> (header bar or GRID tab), which clips the
+                  dash field to this text (or an SVG logo set as Object Mask below) instead. Edit the
+                  dashes from the GRID tab's "Speed Stripe Field" panel; the pulse comes from the WAVE
+                  tab (Ripple Origin = impact point).
+                </p>
+              )}
             </div>
 
             {/* 02_OBJECT MASK SOURCE (TEXT vs SHAPE vs SVG MASK) */}
@@ -574,6 +620,7 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
                   <option value="300">300 - LIGHT</option>
                   <option value="400">400 - REGULAR</option>
                   <option value="700">700 - BOLD</option>
+                  <option value="800">800 - EXTRABOLD</option>
                   <option value="900">900 - HEAVY</option>
                 </select>
               </div>
@@ -769,6 +816,10 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
                     { id: 'wave_ripple', name: 'WAVE RIPPLE' },
                     { id: 'stitch', name: 'STITCH THREAD' },
                     { id: 'woven', name: 'WOVEN TEXTILE' },
+                    { id: 'original_stitch', name: 'ORIGINAL STITCH PATTERN' },
+                    { id: 'typography_box', name: 'TYPOGRAPHY BOX' },
+                    { id: 'mesh_net', name: 'SINE MESH NET' },
+                    { id: 'speed_stripe', name: 'SPEED STRIPE FIELD' },
                     { id: 'ascii', name: 'ASCII MOLECULE' },
                     { id: 'extruded_block', name: 'EXTRUDED 2.5D' },
                     { id: 'tile', name: 'VORTEX TILE' }
@@ -805,9 +856,10 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
               <TangentLineControls state={state} onUpdateState={onUpdateState} />
             )}
 
-            {/* Stitch Craft Controls when stitch/woven shape or style is selected */}
+            {/* Stitch Craft Controls when stitch/woven/original-stitch shape or style is selected */}
             {(state.grid.dotShape === 'stitch' ||
               state.grid.dotShape === 'woven' ||
+              state.grid.dotShape === 'original_stitch' ||
               state.style.visualStyle === 'stitch_craft') && (
               <StitchCraftControls state={state} onUpdateState={onUpdateState} />
             )}
@@ -820,6 +872,21 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
             {/* Typography Radial Ripple Controls (Breaking Signal redesign #2) */}
             {state.compositionMode === 'typography_ripple' && (
               <TypographyRippleControls state={state} onUpdateState={onUpdateState} />
+            )}
+
+            {/* Typography Box Material Controls (News) */}
+            {state.grid.dotShape === 'typography_box' && (
+              <TypographyBoxControls state={state} onUpdateState={onUpdateState} />
+            )}
+
+            {/* Sine Mesh Net Controls (Sports) */}
+            {state.grid.dotShape === 'mesh_net' && (
+              <MeshNetControls state={state} onUpdateState={onUpdateState} />
+            )}
+
+            {/* Speed Stripe Field Controls (Sports) */}
+            {state.grid.dotShape === 'speed_stripe' && (
+              <SpeedStripeControls state={state} onUpdateState={onUpdateState} />
             )}
 
             {/* Multi-Color Dot Controls */}
@@ -860,6 +927,19 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
                   {state.grid.dotShape === 'custom_svg' ? 'ACTIVE' : 'ENABLE SVG'}
                 </button>
               </div>
+
+              {/* Compatibility notice — the uploaded asset is a per-dot shape and every visual
+                  style/preset also picks its own dot shape (square, ascii, extruded block, etc.),
+                  so switching one changes which shape is drawn. The logo itself is NEVER deleted by
+                  that switch — this makes that explicit instead of the logo just silently vanishing,
+                  and gives a one-click way back rather than requiring a re-upload. */}
+              {state.grid.dotShape !== 'custom_svg' && state.grid.customSvgLayers && state.grid.customSvgLayers.length > 0 && (
+                <div className="text-[9px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-2.5 py-2 leading-relaxed">
+                  Your uploaded SVG ({state.grid.customSvgLayers[0]?.name || 'logo'}) is saved and not
+                  lost — the current shape/style just isn't using it as the dot shape right now. Click
+                  ENABLE SVG above to make it active again.
+                </div>
+              )}
 
               {/* Layer Distribution Mode Selector */}
               <div className="pt-2 border-t border-[#222] space-y-1.5">
@@ -2007,54 +2087,56 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
                 />
               </div>
 
-              {/* Data Constellation Lines (for Style 05 or custom) */}
+              {/* Data Constellation connecting lines — only meaningful (and only shown) while the
+                  Data Constellation visual style is active, so this control can't be left on and
+                  accidentally leak lines into unrelated presets/styles. Default OFF. */}
               <MultiColorDotControls state={state} onUpdateState={onUpdateState} />
 
-              <div className="p-2.5 bg-[#0A0A0A] border border-[#222] rounded space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-white uppercase">
-                    DATA CONSTELLATION NETWORK
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={(state.style.constellationMaxDistance || 0) > 0 || state.style.visualStyle === 'data_constellation'}
-                    onChange={(e) =>
-                      onUpdateState((prev) => ({
-                        ...prev,
-                        style: {
-                          ...prev.style,
-                          constellationMaxDistance: e.target.checked ? 55 : 0
-                        }
-                      }))
-                    }
-                    className="w-4 h-4 accent-[#00F0FF] bg-[#0A0A0A] border-[#333] cursor-pointer"
-                  />
-                </div>
-
-                {((state.style.constellationMaxDistance || 0) > 0 || state.style.visualStyle === 'data_constellation') && (
-                  <div>
-                    <div className="flex justify-between text-[#888] text-[10px] mb-1">
-                      <span>MAX CONNECTION DISTANCE</span>
-                      <span className="text-[#00F0FF]">{state.style.constellationMaxDistance || 55}px</span>
+              {state.style.visualStyle === 'data_constellation' && (
+                <div className="p-2.5 bg-[#0A0A0A] border border-[#222] rounded space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="block text-[11px] font-bold text-white uppercase">SHOW CONNECTIONS</span>
+                      <span className="text-[10px] text-[#888888]">Dot-to-dot network/constellation lines</span>
                     </div>
                     <input
-                      type="range"
-                      min="20"
-                      max="120"
-                      step="5"
-                      value={state.style.constellationMaxDistance || 55}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value);
+                      type="checkbox"
+                      checked={!!state.style.showConnections}
+                      onChange={(e) =>
                         onUpdateState((prev) => ({
                           ...prev,
-                          style: { ...prev.style, constellationMaxDistance: val }
-                        }));
-                      }}
-                      className="w-full h-[2px] bg-[#222] appearance-none cursor-pointer accent-[#00F0FF]"
+                          style: { ...prev.style, showConnections: e.target.checked }
+                        }))
+                      }
+                      className="w-4 h-4 accent-[#00F0FF] bg-[#0A0A0A] border-[#333] cursor-pointer"
                     />
                   </div>
-                )}
-              </div>
+
+                  {state.style.showConnections && (
+                    <div>
+                      <div className="flex justify-between text-[#888] text-[10px] mb-1">
+                        <span>MAX CONNECTION DISTANCE</span>
+                        <span className="text-[#00F0FF]">{state.style.constellationMaxDistance || 55}px</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="20"
+                        max="120"
+                        step="5"
+                        value={state.style.constellationMaxDistance || 55}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          onUpdateState((prev) => ({
+                            ...prev,
+                            style: { ...prev.style, constellationMaxDistance: val }
+                          }));
+                        }}
+                        className="w-full h-[2px] bg-[#222] appearance-none cursor-pointer accent-[#00F0FF]"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* 2.5D Extrusion Controls (for Extruded Block Shape or Style 07) */}
               <div className="p-2.5 bg-[#0A0A0A] border border-[#222] rounded space-y-2">

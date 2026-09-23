@@ -83,6 +83,7 @@ export const BASE_DEFAULT_STATE: RenderState = {
     extrusionLightIntensity: 0.7,
     constellationMaxDistance: 50,
     constellationShowLabels: true,
+    showConnections: false,
     vortexTwist: 1.2,
     pixelArtScale: 16,
     editorialHeadlineOffsetX: 0,
@@ -663,8 +664,12 @@ export const PRESETS: Preset[] = [
         density: 12,
         minRadius: 1.2,
         maxRadius: 6.5,
-        dotShape: 'stitch',
-        culturalMaterial: 'stitch',
+        // Default material is now the exact-source Original Stitch Pattern (120x120 rotated-ellipse
+        // grid — see computeOriginalStitchParticles). The prior default 'stitch' thread material is
+        // untouched and still fully selectable from 01_BUILT-IN DOT PARTICLES — nothing about it was
+        // removed, only which shape this preset opens with.
+        dotShape: 'original_stitch',
+        culturalMaterial: 'original_stitch',
         stitchLength: 16,
         stitchThickness: 3.2,
         stitchAngleMode: 'diagonal_sashiko',
@@ -676,45 +681,336 @@ export const PRESETS: Preset[] = [
         hideBackgroundDots: false
       },
       wave: {
+        // Gentler defaults than the previous 'stitch' material: at 14,400 densely-packed elements,
+        // full displacement reads as noise rather than a ripple — kept moderate so the woven pattern
+        // stays recognizable while animating, per the task's own caution on this point.
         mode: 'flow',
-        pattern: 'interference',
+        pattern: 'circular',
         waveType: 'sine',
-        waveSpeed: 0.65,
-        waveFrequency: 1.4,
-        waveAmplitude: 0.92,
-        waveSoftness: 0.38,
-        vectorDistortion: 1.15,
-        blendBack: 0.75,
-        frequencyThickness: 1.2,
-        radialThickness: 0.3,
-        emphasizeWavefront: true,
-        wavefrontEmphasis: 0.85,
-        wavefrontArcLength: 1.3,
-        wavefrontCurveWidth: 1.4,
-        originX: 0.4,
+        waveSpeed: 0.5,
+        waveFrequency: 1.0,
+        waveAmplitude: 0.5,
+        waveSoftness: 0.4,
+        vectorDistortion: 0.6,
+        blendBack: 0.82,
+        frequencyThickness: 1.0,
+        radialThickness: 0.2,
+        originX: 0.5,
         originY: 0.5,
         secondaryOriginX: 0.6,
         secondaryOriginY: 0.5,
-        frequencyVariation: 0.3,
-        amplitudeVariation: 0.35,
-        sizeRandomness: 0.25,
+        frequencyVariation: 0.15,
+        amplitudeVariation: 0.15,
+        sizeRandomness: 0.1,
         randomSeed: 808
       },
       style: {
-        theme: 'solarized',
+        theme: 'minimal_noir',
         visualStyle: 'stitch_craft',
-        dotColor: '#f59e0b',
-        bgColor: '#170c04',
-        accentColor: '#e07a5f',
-        enableColorGradient: true,
+        // Two-tone checkerboard variant — noStroke(); alternating fill(color1/color2, 200);
+        // background(0). Opacity (200/255) is applied by the 'original_stitch' shape renderer itself,
+        // not via these colors' alpha. dotColor is kept as the single-color fallback (used whenever
+        // Multi-Color is switched off from the GRID tab).
+        dotColor: '#0793B3',
+        enableMultiColor: true,
+        multiColorPalette: ['#0793B3', '#F24A48'],
+        multiColorDistribution: 'palette_list',
+        bgColor: '#000000',
+        accentColor: '#F24A48',
+        enableColorGradient: false,
         gradientColor: '#81b29a',
-        vignette: true,
+        vignette: false,
         uniformColorBrightness: false,
-        showRadarGrid: true,
+        showRadarGrid: false,
         radarGridOpacity: 0.16,
         showEmitterHandle: false,
         constellationMaxDistance: 45,
         constellationShowLabels: false
+      }
+    }
+  },
+
+  // 09 — GLOBAL WIRE (News)
+  {
+    id: 'global_wire',
+    name: '09. Global Wire',
+    category: 'News',
+    description: 'A cached grid of colorful multilingual word-boxes whose opacity is driven live by the Ripple Engine.',
+    formulaDescription: 'Packed rounded-rect typography boxes (existing Typography Box Material) sampled by the shared wave engine at each box center — opacity, not position, follows the wavefront.',
+    compositionMode: 'full_molecule',
+    defaultVisualStyle: 'dot_matrix',
+    tags: ['News', 'Typography', 'Ripple', 'Multilingual'],
+    config: {
+      compositionMode: 'full_molecule',
+      activeVisualStyle: 'dot_matrix',
+      font: {
+        text: 'GLOBAL\nWIRE',
+        fontFamily: 'Space Grotesk',
+        fontSize: 140,
+        fontWeight: 700,
+        letterSpacing: 4,
+        lineHeight: 0.95,
+        textAlign: 'center',
+        invertText: false
+      },
+      grid: {
+        gridType: 'square',
+        density: 10,
+        minRadius: 1,
+        maxRadius: 5.5,
+        dotShape: 'typography_box',
+        sdfThreshold: 0.5,
+        sdfSoftness: 0.8,
+        hideBackgroundDots: false,
+        // Exact port of the source material's own defaults (words, palette, geometry) — see
+        // DEFAULT_TYPOGRAPHY_BOX_CONFIG in particleRenderer.ts. Spelled out here too so the preset
+        // is self-documenting and independently editable from the GRID tab without surprises.
+        typographyBox: {
+          words: ['caffeine', 'Hola!', 'Hallo!', 'Bonjour!', 'caffeine', '你好', 'こんにちは', 'Привет'],
+          colorPalette: ['#FFF533', '#F64FA7', '#73F849'],
+          fontFamily: 'Arial',
+          fontSize: 52,
+          boxHeight: 75,
+          horizontalPadding: 40,
+          marginX: 20,
+          marginY: 20,
+          cornerRadius: 50,
+          cornerRadiusMode: 'uniform',
+          cornerRadiusMin: 0,
+          cornerRadiusMax: 50,
+          filledRatio: 0.5,
+          strokeColor: '#000000',
+          textColor: '#000000',
+          strokeWidth: 3,
+          baseOpacity: 0.12,
+          minOpacity: 0.08,
+          maxOpacity: 1.0,
+          opacityInfluence: 0.9,
+          opacitySoftness: 0.45,
+          invertOpacity: false
+        }
+      },
+      wave: {
+        mode: 'flow',
+        pattern: 'circular',
+        waveType: 'pulse',
+        waveSpeed: 0.6,
+        waveFrequency: 1.0,
+        waveAmplitude: 1.0,
+        waveSoftness: 0.4,
+        frequencyThickness: 1.0,
+        radialThickness: 0.0,
+        originX: 0.5,
+        originY: 0.5,
+        secondaryOriginX: 0.5,
+        secondaryOriginY: 0.5,
+        vectorDistortion: 0.8,
+        frequencyVariation: 0.0,
+        amplitudeVariation: 0.0,
+        sizeRandomness: 0.0,
+        randomSeed: 2024
+      },
+      style: {
+        theme: 'swiss_editorial',
+        visualStyle: 'dot_matrix',
+        dotColor: '#111111',
+        bgColor: '#FFFFFF',
+        accentColor: '#F64FA7',
+        enableColorGradient: false,
+        gradientColor: '#818cf8',
+        vignette: false,
+        uniformColorBrightness: false,
+        showRadarGrid: false,
+        radarGridOpacity: 0.25,
+        showEmitterHandle: false
+      }
+    }
+  },
+
+  // 10 — SINE MESH NET (Sports)
+  {
+    id: 'sine_mesh_net',
+    name: '10. Sine Mesh Net',
+    category: 'Sports',
+    description: '3D Net Vibration / Goal Impact — a wireframe sports net rippling with sine-wave motion from an impact point.',
+    formulaDescription: 'A wireframe mesh grid displaced by the existing circular wave engine from the Ripple Origin, reading like a ball-impact ripple traveling through a net.',
+    compositionMode: 'full_molecule',
+    defaultVisualStyle: 'dot_matrix',
+    tags: ['Sports', 'Mesh', 'Net', 'Impact', 'Sine Wave'],
+    config: {
+      compositionMode: 'full_molecule',
+      activeVisualStyle: 'dot_matrix',
+      font: {
+        text: 'GOAL\nIMPACT',
+        fontFamily: 'Anton',
+        fontSize: 150,
+        fontWeight: 400,
+        letterSpacing: 3,
+        lineHeight: 0.9,
+        textAlign: 'center',
+        invertText: false
+      },
+      grid: {
+        gridType: 'square',
+        density: 10,
+        minRadius: 1,
+        maxRadius: 5.5,
+        dotShape: 'mesh_net',
+        sdfThreshold: 0.5,
+        sdfSoftness: 0.8,
+        hideBackgroundDots: false,
+        meshNet: {
+          meshWidth: 0.62,
+          meshHeight: 0.62,
+          densityX: 16,
+          densityY: 12,
+          lineThickness: 2,
+          showNodes: true,
+          nodeSize: 2.6,
+          curvature: 0.15,
+          perspectiveAmount: 0.2,
+          displacementStrength: 1.1,
+          damping: 0.35,
+          lineColor: '#E8ECF5',
+          nodeColor: '#FFFFFF',
+          accentColor: '#39FF9E',
+          lineOpacity: 0.55,
+          glowIntensity: 0.8
+        }
+      },
+      wave: {
+        mode: 'flow',
+        pattern: 'circular',
+        waveType: 'sine',
+        waveSpeed: 0.85,
+        waveFrequency: 1.1,
+        waveAmplitude: 1.15,
+        waveSoftness: 0.45,
+        frequencyThickness: 1.0,
+        radialThickness: 0.35,
+        vectorDistortion: 1.0,
+        blendBack: 0.7,
+        originX: 0.5,
+        originY: 0.5,
+        secondaryOriginX: 0.5,
+        secondaryOriginY: 0.5,
+        frequencyVariation: 0.0,
+        amplitudeVariation: 0.0,
+        sizeRandomness: 0.0,
+        randomSeed: 1010
+      },
+      style: {
+        theme: 'blueprint_cyan',
+        visualStyle: 'dot_matrix',
+        dotColor: '#E8ECF5',
+        bgColor: '#05070C',
+        accentColor: '#39FF9E',
+        enableColorGradient: false,
+        gradientColor: '#7dd3fc',
+        vignette: true,
+        uniformColorBrightness: false,
+        showRadarGrid: false,
+        radarGridOpacity: 0.18,
+        showEmitterHandle: false
+      }
+    }
+  },
+
+  // 11 — SPEED STRIPE FIELD (Sports)
+  {
+    id: 'speed_stripe_field',
+    name: '11. Speed Stripe Field',
+    category: 'Sports',
+    description: 'Velocity Dash — bold diagonal dash units in yellow-on-black, activated by a directional speed pulse.',
+    formulaDescription: 'A field of diagonal dash units sampling the existing wave engine at each dash center, with a local directional stagger sweeping the ripple across the field.',
+    compositionMode: 'full_molecule',
+    defaultVisualStyle: 'dot_matrix',
+    tags: ['Sports', 'Speed', 'Stripe', 'Dash', 'Motion'],
+    config: {
+      compositionMode: 'full_molecule',
+      activeVisualStyle: 'dot_matrix',
+      font: {
+        text: 'SPRINT\nFIELD',
+        fontFamily: 'Anton',
+        fontSize: 150,
+        fontWeight: 400,
+        letterSpacing: 3,
+        lineHeight: 0.9,
+        textAlign: 'center',
+        invertText: false
+      },
+      grid: {
+        gridType: 'square',
+        density: 10,
+        minRadius: 1,
+        maxRadius: 5.5,
+        dotShape: 'speed_stripe',
+        sdfThreshold: 0.5,
+        sdfSoftness: 0.8,
+        hideBackgroundDots: false,
+        speedStripe: {
+          dashAngle: 35,
+          dashWidth: 52,
+          dashHeight: 16,
+          spacingX: 6,
+          spacingY: 6,
+          rowOffset: 0.5,
+          columnCount: 12,
+          rowCount: 9,
+          fieldWidth: 0.72,
+          fieldHeight: 0.5,
+          scaleProgression: 0,
+          variationMode: 'wave_activated',
+          rippleInfluence: 0.9,
+          animSpeed: 1.0,
+          displacementAmount: 0.25,
+          opacityInfluence: 0.6,
+          scalePulseAmount: 0.3,
+          staggerAmount: 0,
+          motionDirection: 35,
+          primaryColor: '#FFF200',
+          secondaryColor: '#000000',
+          baseOpacity: 0.85,
+          minOpacity: 0.3,
+          maxOpacity: 1.0,
+          contrast: 1.1
+        }
+      },
+      wave: {
+        mode: 'flow',
+        pattern: 'circular',
+        waveType: 'pulse',
+        waveSpeed: 1.1,
+        waveFrequency: 1.3,
+        waveAmplitude: 1.0,
+        waveSoftness: 0.35,
+        frequencyThickness: 1.0,
+        radialThickness: 0.3,
+        vectorDistortion: 0.8,
+        blendBack: 0.7,
+        originX: 0.5,
+        originY: 0.5,
+        secondaryOriginX: 0.5,
+        secondaryOriginY: 0.5,
+        linearAngle: 35,
+        frequencyVariation: 0.0,
+        amplitudeVariation: 0.0,
+        sizeRandomness: 0.0,
+        randomSeed: 2025
+      },
+      style: {
+        theme: 'minimal_noir',
+        visualStyle: 'dot_matrix',
+        dotColor: '#FFF200',
+        bgColor: '#000000',
+        accentColor: '#FFF200',
+        enableColorGradient: false,
+        gradientColor: '#FFF200',
+        vignette: false,
+        uniformColorBrightness: true,
+        showRadarGrid: false,
+        radarGridOpacity: 0.18,
+        showEmitterHandle: false
       }
     }
   }
@@ -741,11 +1037,40 @@ export function applyPresetToState(presetOrId: Preset | string, currentState?: R
     font: {
       ...base.font,
       ...preset.config.font,
-      text: textToUse
+      text: textToUse,
+      // Uploaded SVG-as-text-mask logo is a cross-cutting user asset, not a preset-owned visual
+      // default — no preset currently bakes in its own maskSvgXml, so carry the user's upload (and
+      // the maskMode that activates it) forward across preset switches instead of discarding it.
+      ...(preset.config.font?.maskSvgXml === undefined &&
+      currentState?.font?.maskMode === 'svg_mask' &&
+      currentState?.font?.maskSvgXml
+        ? {
+            maskMode: currentState.font.maskMode,
+            maskSvgDataUrl: currentState.font.maskSvgDataUrl,
+            maskSvgXml: currentState.font.maskSvgXml,
+            maskSvgName: currentState.font.maskSvgName,
+            maskScale: currentState.font.maskScale,
+            maskScaleX: currentState.font.maskScaleX,
+            maskScaleY: currentState.font.maskScaleY
+          }
+        : {})
     },
     grid: {
       ...base.grid,
-      ...preset.config.grid
+      ...preset.config.grid,
+      // Uploaded SVG dot-shape logo(s) — same cross-cutting-asset reasoning as the text mask above.
+      // The preset's own dotShape still takes effect (a preset switch legitimately changes which
+      // shape renders by default), but the uploaded asset itself is preserved and instantly
+      // reusable via the SVG panel's ENABLE SVG toggle rather than requiring a re-upload.
+      ...(preset.config.grid?.customSvgLayers === undefined && currentState?.grid?.customSvgLayers
+        ? {
+            customSvgDataUrl: currentState.grid.customSvgDataUrl,
+            customSvgXml: currentState.grid.customSvgXml,
+            customSvgName: currentState.grid.customSvgName,
+            customSvgLayers: currentState.grid.customSvgLayers,
+            customSvgDistribution: currentState.grid.customSvgDistribution
+          }
+        : {})
     },
     wave: {
       ...base.wave,
@@ -756,7 +1081,12 @@ export function applyPresetToState(presetOrId: Preset | string, currentState?: R
       // switches instead of silently resetting, while still defaulting to disabled on first load.
       dynamicThickness: preset.config.wave?.dynamicThickness
         ? { ...(base.wave.dynamicThickness as NonNullable<RenderState['wave']['dynamicThickness']>), ...preset.config.wave.dynamicThickness }
-        : currentState?.wave?.dynamicThickness || base.wave.dynamicThickness
+        : currentState?.wave?.dynamicThickness || base.wave.dynamicThickness,
+      // Radial 3D's own uploaded SVG shape (a separate asset slot from the 2D grid's above, since
+      // it's a dedicated rendering engine) is likewise a cross-cutting user asset.
+      radial3D: preset.config.wave?.radial3D
+        ? { ...(base.wave.radial3D || {}), ...preset.config.wave.radial3D }
+        : currentState?.wave?.radial3D || base.wave.radial3D
     },
     style: {
       ...base.style,

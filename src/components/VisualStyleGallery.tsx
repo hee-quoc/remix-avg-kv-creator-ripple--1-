@@ -13,7 +13,24 @@ export const VisualStyleGallery: React.FC<VisualStyleGalleryProps> = ({
   onUpdateState
 }) => {
   const handleSelectStyle = (style: VisualStyleDefinition) => {
-    onUpdateState((prev) => style.apply(prev));
+    onUpdateState((prev) => {
+      const next = style.apply(prev);
+      // Every style's apply() unconditionally sets its own grid.dotShape (that's the whole point of
+      // a visual style) — which would silently revert an uploaded SVG logo away from view even though
+      // its data was never deleted. Unlike a full PRESET switch (a deliberate, holistic look change
+      // where the target preset's own default shape legitimately takes over — see the compatibility
+      // banor in ControlsDrawer.tsx), a visual STYLE switch is meant to update only the properties
+      // that belong to that style; the user's explicit choice to render their own logo doesn't belong
+      // to any built-in style, so it survives here instead of requiring a manual re-enable click.
+      if (
+        prev.grid.dotShape === 'custom_svg' &&
+        prev.grid.customSvgLayers &&
+        prev.grid.customSvgLayers.length > 0
+      ) {
+        return { ...next, grid: { ...next.grid, dotShape: 'custom_svg' } };
+      }
+      return next;
+    });
   };
 
   return (

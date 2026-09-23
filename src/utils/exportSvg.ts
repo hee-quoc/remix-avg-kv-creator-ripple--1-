@@ -60,8 +60,8 @@ export function generateSVGFromParticles(
     svg.appendChild(kvGroupUnder);
   }
 
-  // Optional Data Constellation connecting lines
-  if (style.visualStyle === 'data_constellation' || (style.constellationMaxDistance && style.constellationMaxDistance > 0)) {
+  // Optional Data Constellation connecting lines — see the matching gate in KineticCanvas.tsx.
+  if (style.visualStyle === 'data_constellation' && style.showConnections) {
     const linesGroup = document.createElementNS(SVG_NS, 'g');
     linesGroup.setAttribute('id', 'constellation-connections');
     renderConstellationLinesToSVG(

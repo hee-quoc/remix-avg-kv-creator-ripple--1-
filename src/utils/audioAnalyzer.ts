@@ -59,10 +59,118 @@ export const DEFAULT_AUDIO_CONFIG: AudioConfig = {
   mappings: [
     { source: 'bass', target: 'waveThickness', amount: 0.6 },
     { source: 'beatPulse', target: 'waveAmplitude', amount: 0.4 }
-  ]
+  ],
+  vocalReactivity: {
+    mode: 'off',
+    sensitivity: 1.3,
+    freqLow: 150,
+    freqHigh: 4000,
+    attack: 0.65,
+    release: 0.25,
+    influence: 0.6,
+    adaptiveNormalization: true,
+    confidenceThresholdOn: 0.5,
+    confidenceThresholdOff: 0.32,
+    minVocalDuration: 0.12,
+    detectionSmoothing: 0.35
+  }
 };
 
 const EMPTY_UINT8 = new Uint8Array(0);
+
+function smoothstep(edge0: number, edge1: number, x: number): number {
+  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
+
+/**
+ * Harmonicity / periodicity "clarity" via a short-lag normalized autocorrelation over the vocal
+ * fundamental range (~150-800Hz). This is a classic pitch-detection building block (same family as
+ * YIN's periodicity measure), used here only as one of three supporting features — NOT as a vocal
+ * identifier on its own, since clean synth/guitar/piano tones are often MORE periodic than a voice.
+ * It only gates out non-tonal noise/silence (see tonalGate in updateInternal). Lag/inner loops are
+ * strided by 2 to keep this cheap enough to run once per animation frame alongside 2D dot rendering.
+ */
+function computeHarmonicity(timeData: Uint8Array, sampleRate: number): number {
+  const n = timeData.length;
+  const minLag = Math.max(2, Math.floor(sampleRate / 800));
+  const maxLag = Math.min(n - 2, Math.floor(sampleRate / 150));
+  if (maxLag <= minLag) return 0;
+
+  const sig = new Float32Array(n);
+  let energy0 = 0;
+  for (let i = 0; i < n; i++) {
+    const v = (timeData[i] - 128) / 128;
+    sig[i] = v;
+    energy0 += v * v;
+  }
+  if (energy0 < 1e-4) return 0;
+
+  let bestCorr = 0;
+  for (let lag = minLag; lag <= maxLag; lag += 2) {
+    let corr = 0;
+    const limit = n - lag;
+    for (let i = 0; i < limit; i += 2) corr += sig[i] * sig[i + lag];
+    const norm = corr / energy0;
+    if (norm > bestCorr) bestCorr = norm;
+  }
+  return Math.max(0, Math.min(1, bestCorr));
+}
+
+/**
+ * Syllabic-rate amplitude-modulation strength (~2-6Hz), a well-established DSP heuristic from
+ * pre-deep-learning singing-voice-detection literature: sung/spoken phrases pulse at the syllable
+ * rate, while sustained instrumental tones (pads, held guitar/piano notes/chords) don't. Scored
+ * against a target of ~4Hz with a tolerance window, gated by modulation depth so a flat/silent
+ * signal never scores highly just from noise.
+ */
+function computeSyllabicModulation(samples: { t: number; v: number }[]): number {
+  if (samples.length < 8) return 0;
+  let sum = 0;
+  let minV = Infinity;
+  let maxV = -Infinity;
+  for (const s of samples) {
+    sum += s.v;
+    if (s.v < minV) minV = s.v;
+    if (s.v > maxV) maxV = s.v;
+  }
+  const mean = sum / samples.length;
+  const amp = maxV - minV;
+  if (amp < 0.03) return 0;
+
+  let crossings = 0;
+  let prevAbove = samples[0].v - mean >= 0;
+  for (let i = 1; i < samples.length; i++) {
+    const above = samples[i].v - mean >= 0;
+    if (above !== prevAbove) {
+      crossings++;
+      prevAbove = above;
+    }
+  }
+  const durationSec = (samples[samples.length - 1].t - samples[0].t) / 1000;
+  if (durationSec <= 0) return 0;
+
+  const rateHz = crossings / 2 / durationSec;
+  const target = 4.0;
+  const width = 3.0;
+  const rateScore = Math.exp(-Math.pow((rateHz - target) / width, 2));
+  const ampScore = Math.min(1, amp / 0.35);
+  return Math.max(0, Math.min(1, rateScore * ampScore));
+}
+
+/** Fraction of total spectral energy concentrated in the core vocal-formant range (~300-3400Hz). */
+function computeFormantRatio(freqData: Uint8Array, binHz: number): number {
+  const lowBin = Math.max(0, Math.round(300 / binHz));
+  const highBin = Math.min(freqData.length - 1, Math.round(3400 / binHz));
+  let bandSum = 0;
+  let total = 0;
+  for (let i = 0; i < freqData.length; i++) {
+    total += freqData[i];
+    if (i >= lowBin && i <= highBin) bandSum += freqData[i];
+  }
+  if (total <= 0) return 0;
+  return Math.min(1, bandSum / total);
+}
 
 class AudioAnalyzerEngine {
   private audioCtx: AudioContext | null = null;
@@ -89,6 +197,20 @@ class AudioAnalyzerEngine {
   private smoothedHigh = 0;
   private smoothedOverall = 0;
   private smoothedBeatIntensity = 0;
+
+  // Vocal Reactivity — independent envelope + adaptive floor/peak tracking, isolated from beat
+  // detection so singing never spawns rings (see spawnRippleSequence, which vocal never calls into).
+  private smoothedVocal = 0;
+  private vocalNoiseFloor = 0;
+  private vocalPeak = 0.15;
+
+  // Vocal DETECTION (separate from the energy tracking above — see VocalReactivityConfig doc
+  // comment in types.ts for why energy alone is not proof of vocal presence).
+  private vocalEnvSamples: { t: number; v: number }[] = []; // downsampled ring buffer for syllabic-rate modulation analysis
+  private smoothedVocalConfidence = 0;
+  private vocalDetected = false;
+  private vocalAboveOnSince = 0; // performance.now() timestamp confidence first crossed the ON threshold, 0 = not currently above
+  private smoothedVocalGate = 0; // eases 0..1 toward vocalDetected?1:0 so ripple modulation settles smoothly rather than cutting abruptly
 
   // 256-sample rolling volume history: index 0 = newest (center), higher index = older (outward)
   private volumeHistory: Float32Array = new Float32Array(256);
@@ -282,6 +404,14 @@ class AudioAnalyzerEngine {
     this.smoothedBeatIntensity = 0;
     this.beatPulse = 0;
     this.rippleShiftAccumulator = 0;
+    this.smoothedVocal = 0;
+    this.vocalNoiseFloor = 0;
+    this.vocalPeak = 0.15;
+    this.vocalEnvSamples = [];
+    this.smoothedVocalConfidence = 0;
+    this.vocalDetected = false;
+    this.vocalAboveOnSince = 0;
+    this.smoothedVocalGate = 0;
   }
 
   /**
@@ -859,6 +989,27 @@ class AudioAnalyzerEngine {
       this.smoothedBeatIntensity *= 0.82;
       if (this.smoothedBeatIntensity < 0.005) this.smoothedBeatIntensity = 0;
 
+      // Vocal envelope settles on the release curve too (never freezes) so movement relaxes smoothly
+      // when the singer stops, rather than holding the last value or snapping instantly to 0.
+      const releaseRate = 0.03 + Math.min(0.95, Math.max(0.05, config.vocalReactivity?.release ?? 0.25)) * 0.2;
+      this.smoothedVocal += (0 - this.smoothedVocal) * releaseRate;
+      if (this.smoothedVocal < 0.004) this.smoothedVocal = 0;
+
+      // Detection settles too: confidence decays, detection drops once below OFF threshold, and the
+      // gate eases toward 0 on the same smooth release curve as the ripple-facing energy above.
+      this.smoothedVocalConfidence *= 0.9;
+      if (this.smoothedVocalConfidence < 0.01) this.smoothedVocalConfidence = 0;
+      const pausedDetOff = Math.min(
+        (config.vocalReactivity?.confidenceThresholdOn ?? 0.5) - 0.02,
+        Math.max(0.02, config.vocalReactivity?.confidenceThresholdOff ?? 0.32)
+      );
+      if (this.smoothedVocalConfidence < pausedDetOff) {
+        this.vocalDetected = false;
+        this.vocalAboveOnSince = 0;
+      }
+      this.smoothedVocalGate += (0 - this.smoothedVocalGate) * 0.08;
+      if (this.smoothedVocalGate < 0.004) this.smoothedVocalGate = 0;
+
       // Stopped/paused: decay history in place (no advance) so ripples settle rather than freeze.
       for (let i = 0; i < this.volumeHistory.length; i++) {
         this.volumeHistory[i] *= 0.85;
@@ -877,6 +1028,14 @@ class AudioAnalyzerEngine {
         bass: this.smoothedBass * 0.9,
         mid: this.smoothedMid * 0.9,
         high: this.smoothedHigh * 0.9,
+        vocal: this.smoothedVocal,
+        vocalRaw: 0,
+        fullMix: this.smoothedOverall * 0.9,
+        vocalConfidence: this.smoothedVocalConfidence,
+        vocalDetected: this.vocalDetected,
+        vocalDetectionMethod: 'heuristic',
+        vocalStemStatus: 'unavailable',
+        vocalRippleInfluence: 0,
         beatDetected: false,
         beatStrength: 0,
         beatPulse: this.beatPulse,
@@ -926,6 +1085,27 @@ class AudioAnalyzerEngine {
     }
     const rawHigh = (sumHigh / (countHigh * 255)) * config.highSensitivity;
 
+    // Vocal Reactivity — reads the SAME freqData buffer already sampled above (no extra FFT/analyser
+    // work), just a differently-bounded band sum. Root cause of "ripple barely reacts to singing":
+    // the pre-existing Mid band (bins 6-35, ~500Hz-3kHz here) undershoots the configurable vocal
+    // range (default 150-4000Hz) AND, more importantly, nothing in the default parameter mappings or
+    // beat-detection path ever routed Mid/vocal energy to a visible target — only Bass and beatPulse
+    // did, and beat detection is a bass-onset (kick drum) detector that rarely fires on sustained
+    // singing with no drums. This band is intentionally independent from `mid`/beat detection so a
+    // user's existing Bass/Beat-driven presets are completely unaffected.
+    const vc = config.vocalReactivity;
+    const vocalFreqLow = vc?.freqLow ?? 150;
+    const vocalFreqHigh = vc?.freqHigh ?? 4000;
+    const vocalSensitivity = vc?.sensitivity ?? 1.3;
+    const nyquist = (this.audioCtx?.sampleRate ?? 44100) / 2;
+    const binHz = nyquist / this.freqData.length;
+    const vocalLowBin = Math.max(0, Math.min(this.freqData.length - 1, Math.round(vocalFreqLow / binHz)));
+    const vocalHighBin = Math.max(vocalLowBin, Math.min(this.freqData.length - 1, Math.round(vocalFreqHigh / binHz)));
+    let sumVocal = 0;
+    for (let i = vocalLowBin; i <= vocalHighBin; i++) sumVocal += this.freqData[i];
+    const vocalBinCount = vocalHighBin - vocalLowBin + 1;
+    const rawVocal = (sumVocal / (vocalBinCount * 255)) * vocalSensitivity;
+
     let sumOverall = 0;
     for (let i = 0; i < this.freqData.length; i++) sumOverall += this.freqData[i];
     const rawOverall = (sumOverall / (this.freqData.length * 255)) * config.sensitivity;
@@ -936,6 +1116,126 @@ class AudioAnalyzerEngine {
     this.smoothedMid += (rawMid - this.smoothedMid) * smoothingBase;
     this.smoothedHigh += (rawHigh - this.smoothedHigh) * smoothingBase;
     this.smoothedOverall += (rawOverall - this.smoothedOverall) * smoothingBase;
+
+    // Vocal Reactivity — adaptive normalization + independent attack/release envelope. A raw FFT
+    // band reading is a weak/noisy signal on its own (a quiet a-cappella verse and a loud chorus
+    // read completely differently); adaptive normalization tracks a slow-moving noise floor (so
+    // room hiss / silence never gets amplified into false movement — a low floor is not amplified,
+    // it is the subtraction baseline) and a slow-decaying peak (so the song's own loudness range
+    // becomes the 0..1 scale), which is what lets a soft, isolated vocal register as strongly as a
+    // loud one relative to itself — without ever multiplying by one large constant as a shortcut.
+    const vocalNoiseGate = 0.01; // rejects near-silence only — deliberately below the RMS gate above
+    // so quieter singing is never suppressed (task requirement: "avoid thresholds that suppress
+    // quieter vocals").
+    const vocalAboveGate = rawVocal > vocalNoiseGate ? rawVocal : 0;
+
+    // Floor tracks slowly upward, faster downward, so it settles just under the quietest recent
+    // vocal-band content (room tone / instrument bleed) rather than the loudest.
+    const floorRate = vocalAboveGate < this.vocalNoiseFloor ? 0.08 : 0.004;
+    this.vocalNoiseFloor += (vocalAboveGate - this.vocalNoiseFloor) * floorRate;
+    this.vocalNoiseFloor = Math.max(0, this.vocalNoiseFloor);
+
+    // Peak rises fast on new loud content, decays slowly so it represents "how loud this song's
+    // vocal range gets", not just the last instant.
+    if (vocalAboveGate > this.vocalPeak) {
+      this.vocalPeak += (vocalAboveGate - this.vocalPeak) * 0.35;
+    } else {
+      this.vocalPeak += (vocalAboveGate - this.vocalPeak) * 0.002;
+    }
+    this.vocalPeak = Math.max(0.06, this.vocalPeak);
+
+    const adaptiveOn = vc?.adaptiveNormalization ?? true;
+    const vocalRange = Math.max(0.02, this.vocalPeak - this.vocalNoiseFloor);
+    const normalizedVocal = adaptiveOn
+      ? Math.min(1.0, Math.max(0, (vocalAboveGate - this.vocalNoiseFloor) / vocalRange))
+      : Math.min(1.0, vocalAboveGate);
+
+    // Attack/release envelope, independently configurable from the global Smoothing knob so vocal
+    // dynamics (phrase starts, sustained notes, silence between lines) aren't washed out by whatever
+    // smoothing the Bass/Beat analysis is using.
+    const vocalAttackRate = 0.12 + Math.min(1, Math.max(0, vc?.attack ?? 0.65)) * 0.75;
+    const vocalReleaseRate = 0.02 + Math.min(1, Math.max(0, vc?.release ?? 0.25)) * 0.22;
+    if (normalizedVocal > this.smoothedVocal) {
+      this.smoothedVocal += (normalizedVocal - this.smoothedVocal) * vocalAttackRate;
+    } else {
+      this.smoothedVocal += (normalizedVocal - this.smoothedVocal) * vocalReleaseRate;
+    }
+    this.smoothedVocal = Math.min(1.0, Math.max(0, this.smoothedVocal));
+    if (this.smoothedVocal < 0.004) this.smoothedVocal = 0;
+
+    // ---- Vocal DETECTION (separate from the ENERGY tracked above) ----
+    // Energy alone is not proof of vocal presence — a synth pad, guitar or piano can sit at the
+    // exact same band energy as a voice. Detection combines three independent DSP cues into a
+    // confidence score: (1) harmonicity — is there ANY tonal/periodic content at all (rules out
+    // pure noise/silence, but does NOT by itself indicate voice vs instrument); (2) syllabic-rate
+    // modulation — does the vocal-band envelope pulse at the ~2-6Hz rate singing/speech naturally
+    // produces, which a sustained pad/held note/drone does not; (3) formant-band concentration — a
+    // minor supporting weight. This is a heuristic, not a trained classifier — see the doc comment
+    // on VocalReactivityConfig in types.ts for why, and its documented limitations.
+    const nowMs = performance.now();
+    if (!this.vocalEnvSamples.length || nowMs - this.vocalEnvSamples[this.vocalEnvSamples.length - 1].t > 30) {
+      this.vocalEnvSamples.push({ t: nowMs, v: normalizedVocal });
+      const cutoff = nowMs - 2000;
+      while (this.vocalEnvSamples.length && this.vocalEnvSamples[0].t < cutoff) this.vocalEnvSamples.shift();
+    }
+
+    const harmonicity = computeHarmonicity(this.timeData, this.audioCtx?.sampleRate ?? 44100);
+    const syllabicModulation = computeSyllabicModulation(this.vocalEnvSamples);
+    const formantRatio = computeFormantRatio(this.freqData, binHz);
+    // Harmonicity only GATES (rules out noise/silence) — it does not scale confidence upward, since
+    // very high periodicity is just as (if not more) consistent with a clean instrument tone.
+    const tonalGate = smoothstep(0.1, 0.32, harmonicity);
+    const formantWeight = 0.5 + 0.5 * formantRatio;
+    const rawConfidence = Math.max(0, Math.min(1, tonalGate * syllabicModulation * formantWeight));
+
+    const detSmoothing = Math.min(0.95, Math.max(0.05, vc?.detectionSmoothing ?? 0.35));
+    const confRate = 1.0 - detSmoothing;
+    this.smoothedVocalConfidence += (rawConfidence - this.smoothedVocalConfidence) * confRate;
+    this.smoothedVocalConfidence = Math.max(0, Math.min(1, this.smoothedVocalConfidence));
+
+    // Hysteresis with separate ON/OFF thresholds + a minimum-duration debounce on the ON transition
+    // only, so a single loud instrumental transient can't flip Vocal Mode on, while release stays
+    // fast (task: "avoid excessive smoothing that causes significant detection delay").
+    const detOn = Math.max(0.05, Math.min(0.95, vc?.confidenceThresholdOn ?? 0.5));
+    const detOff = Math.min(detOn - 0.02, Math.max(0.02, vc?.confidenceThresholdOff ?? 0.32));
+    const minDurMs = Math.max(0, vc?.minVocalDuration ?? 0.12) * 1000;
+
+    if (!this.vocalDetected) {
+      if (this.smoothedVocalConfidence >= detOn) {
+        if (this.vocalAboveOnSince === 0) this.vocalAboveOnSince = nowMs;
+        if (nowMs - this.vocalAboveOnSince >= minDurMs) this.vocalDetected = true;
+      } else {
+        this.vocalAboveOnSince = 0;
+      }
+    } else if (this.smoothedVocalConfidence < detOff) {
+      this.vocalDetected = false;
+      this.vocalAboveOnSince = 0;
+    }
+
+    const gateTarget = this.vocalDetected ? 1 : 0;
+    const gateRate = gateTarget > this.smoothedVocalGate ? 0.3 : 0.08;
+    this.smoothedVocalGate += (gateTarget - this.smoothedVocalGate) * gateRate;
+    this.smoothedVocalGate = Math.max(0, Math.min(1, this.smoothedVocalGate));
+
+    // Final influence actually applied by the AUTOMATIC Vocal Reactivity system (wave.ts) — the raw
+    // `smoothedVocal` energy remains available separately as a manual 'vocal' Parameter Mapping
+    // source (task: "other enabled mappings must continue working normally"), unaffected by mode.
+    const vocalMode = vc?.mode ?? 'off';
+    let vocalRippleInfluence = 0;
+    if (vocalMode === 'auto_detect') {
+      vocalRippleInfluence = this.smoothedVocal * this.smoothedVocalGate;
+    }
+    // 'isolated' intentionally stays 0 — no source-separation engine is bundled in this build (see
+    // vocalStemStatus: 'unavailable'), and silently substituting full-mix band energy while labeling
+    // it "isolated" would misrepresent an unreliable signal as an accurate one.
+
+    // Full Mix — combines frequency-band energy and RMS WITHOUT requiring a bass beat to trigger a
+    // response (task item 4), so quiet/instrument-light vocal passages still move something even
+    // with every other source (Bass/Beat) near zero.
+    const rawFullMix = Math.min(
+      1.0,
+      effectiveRms * 0.4 + rawBass * 0.15 + rawMid * 0.15 + this.smoothedVocal * 0.2 + rawHigh * 0.1
+    );
 
     let beatDetected = false;
     let beatStrength = 0;
@@ -985,7 +1285,14 @@ class AudioAnalyzerEngine {
     if (this.smoothedBeatIntensity < 0.005) this.smoothedBeatIntensity = 0;
 
     // Second Wave phase only advances while audio is genuinely active — silence lets it settle.
-    const audioActivity = Math.max(effectiveRms * 1.6, rawBass * 1.3, this.smoothedBeatIntensity * 0.85);
+    // Vocal energy now also counts as activity (previously only bass/RMS/beat did), so Second Wave
+    // keeps animating through a vocal-only passage instead of nearly flatlining between kick hits.
+    const audioActivity = Math.max(
+      effectiveRms * 1.6,
+      rawBass * 1.3,
+      this.smoothedBeatIntensity * 0.85,
+      this.smoothedVocal * 1.2
+    );
     if (audioActivity > 0.015) {
       const baseSpeed = 0.022 * config.secondWaveSpeed;
       const beatBoost = 0.058 * config.secondWaveSpeed * this.smoothedBeatIntensity;
@@ -1002,6 +1309,10 @@ class AudioAnalyzerEngine {
       currentVol = rawMid * 1.6;
     } else if (config.audioRippleBand === 'beatPulse') {
       currentVol = Math.max(this.beatPulse * 1.3, rawBass * 0.9);
+    } else if (config.audioRippleBand === 'vocal') {
+      currentVol = this.smoothedVocal * 1.7;
+    } else if (config.audioRippleBand === 'fullMix') {
+      currentVol = rawFullMix * 1.6;
     } else {
       currentVol = effectiveRms * 2.6 * config.sensitivity + rawBass * 0.35 + effectiveOverall * 0.25;
     }
@@ -1039,6 +1350,14 @@ class AudioAnalyzerEngine {
       bass: Math.min(1.0, this.smoothedBass),
       mid: Math.min(1.0, this.smoothedMid),
       high: Math.min(1.0, this.smoothedHigh),
+      vocal: this.smoothedVocal,
+      vocalRaw: Math.min(1.0, rawVocal),
+      fullMix: rawFullMix,
+      vocalConfidence: this.smoothedVocalConfidence,
+      vocalDetected: this.vocalDetected,
+      vocalDetectionMethod: 'heuristic',
+      vocalStemStatus: 'unavailable',
+      vocalRippleInfluence,
       beatDetected,
       beatStrength,
       beatPulse: Math.min(1.0, this.beatPulse),

@@ -182,7 +182,8 @@ export const VISUAL_STYLES: VisualStyleDefinition[] = [
         visualStyle: 'data_constellation',
         constellationMaxDistance: 55,
         constellationShowLabels: true,
-        constellationClusterStrength: 0.8
+        constellationClusterStrength: 0.8,
+        showConnections: true
       }
     })
   },
