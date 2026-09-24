@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
 import { FlipDiscConfig, FlipDiscShape, FlipDiscMaterial } from './types';
+import { ObjectShapeType } from '../types';
 import { FlipDiscImageActions } from './FlipDiscCanvas';
-import { Sparkles, Palette, Layers, Wand2, Image as ImageIcon, X } from 'lucide-react';
+import { Sparkles, Palette, Layers, Wand2, Image as ImageIcon, X, Shapes, Upload } from 'lucide-react';
 
 interface FlipDiscControlsProps {
   config: FlipDiscConfig;
@@ -22,6 +23,17 @@ const MATERIALS: { id: FlipDiscMaterial; label: string; desc: string }[] = [
   { id: 'glossy', label: 'GLOSSY', desc: 'Toy-like plastic shine' },
   { id: 'metallic', label: 'METALLIC', desc: 'Brushed chrome sheen' },
   { id: 'iridescent', label: 'IRIDESCENT', desc: 'Prismatic rainbow shimmer — default' }
+];
+
+const MASK_SHAPES: { id: ObjectShapeType; name: string }[] = [
+  { id: 'circle', name: 'CIRCLE' },
+  { id: 'square', name: 'SQUARE' },
+  { id: 'ring', name: 'DONUT' },
+  { id: 'star', name: 'STAR' },
+  { id: 'heart', name: 'HEART' },
+  { id: 'hexagon', name: 'HEXAGON' },
+  { id: 'diamond', name: 'DIAMOND' },
+  { id: 'shield', name: 'SHIELD' }
 ];
 
 const PALETTES: { name: string; front: string; back: string; side: string }[] = [
@@ -266,6 +278,122 @@ export const FlipDiscControls: React.FC<FlipDiscControlsProps> = ({
           {slider('MOTION SOFTNESS', config.motionSoftness, 'motionSoftness', 0, 1.2, 0.02, '', 2)}
           {slider('WAVE TIMING', config.waveTiming, 'waveTiming', 0.2, 3.0, 0.05, 'x', 2)}
         </div>
+      </div>
+
+      {/* Clip Mask */}
+      <div className="space-y-2.5 p-3 bg-[#0d0d12] border border-[#262630] rounded-lg">
+        <span className="text-[11px] font-bold uppercase text-pink-400 flex items-center gap-1.5">
+          <Shapes className="w-3.5 h-3.5" /> CLIP MASK
+        </span>
+        <p className="text-[8px] text-[#666] font-sans leading-relaxed -mt-1">
+          Only discs inside the chosen shape or uploaded logo get flipped in — the rest of the field
+          stays empty, revealing the silhouette in the grid.
+        </p>
+        <div className="grid grid-cols-3 gap-1.5">
+          {(
+            [
+              { id: 'none', label: 'NONE' },
+              { id: 'shape', label: 'SHAPE' },
+              { id: 'svg', label: 'SVG LOGO' }
+            ] as const
+          ).map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => onUpdate({ maskMode: m.id })}
+              className={`p-1.5 rounded border text-center transition-colors ${
+                config.maskMode === m.id
+                  ? 'bg-pink-500/20 border-pink-500 text-pink-300 font-bold'
+                  : 'bg-[#121212] border-[#222] text-[#888] hover:text-white'
+              }`}
+            >
+              <span className="block text-[9px] font-bold uppercase">{m.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {config.maskMode === 'shape' && (
+          <div className="pt-1 border-t border-[#1a1a1a] space-y-1.5">
+            <span className="text-[9px] text-[#888] uppercase block">CHOOSE SHAPE</span>
+            <div className="grid grid-cols-4 gap-1.5">
+              {MASK_SHAPES.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => onUpdate({ maskShapeType: s.id })}
+                  className={`py-1 px-1 rounded border text-center text-[8.5px] font-mono uppercase transition-colors ${
+                    config.maskShapeType === s.id
+                      ? 'bg-pink-500/20 border-pink-500 text-pink-300 font-bold'
+                      : 'bg-[#161616] border-[#2b2b2b] text-[#888] hover:text-white'
+                  }`}
+                >
+                  {s.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {config.maskMode === 'svg' && (
+          <div className="pt-1 border-t border-[#1a1a1a] space-y-2">
+            <span className="text-[9px] text-[#888] uppercase block">UPLOAD SVG LOGO</span>
+            {config.maskSvgName ? (
+              <div className="p-2 bg-[#141414] border border-[#262626] rounded flex items-center justify-between text-[10px]">
+                <span className="text-pink-300 truncate max-w-[150px]">{config.maskSvgName}</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onUpdate({
+                      maskSvgDataUrl: undefined,
+                      maskSvgXml: undefined,
+                      maskSvgName: undefined,
+                      maskMode: 'none'
+                    })
+                  }
+                  className="text-rose-400 hover:text-rose-300 text-[9px] uppercase hover:underline ml-2"
+                >
+                  CLEAR
+                </button>
+              </div>
+            ) : (
+              <label className="cursor-pointer py-1.5 px-3 bg-[#161616] hover:bg-[#202020] border border-[#333] hover:border-pink-500 rounded text-center text-[10px] text-[#ccc] hover:text-white uppercase transition-colors flex items-center justify-center gap-2">
+                <Upload className="w-3.5 h-3.5 text-pink-400" />
+                <span>UPLOAD SVG FILE</span>
+                <input
+                  type="file"
+                  accept=".svg"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const readerText = new FileReader();
+                    readerText.onload = (event) => {
+                      const xml = event.target?.result as string;
+                      const readerUrl = new FileReader();
+                      readerUrl.onload = (evUrl) => {
+                        const dataUrl = evUrl.target?.result as string;
+                        onUpdate({
+                          maskMode: 'svg',
+                          maskSvgXml: xml,
+                          maskSvgDataUrl: dataUrl,
+                          maskSvgName: file.name
+                        });
+                      };
+                      readerUrl.readAsDataURL(file);
+                    };
+                    readerText.readAsText(file);
+                  }}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
+        )}
+
+        {config.maskMode !== 'none' && (
+          <div className="pt-1 border-t border-[#1a1a1a]">
+            {slider('MASK SCALE', config.maskScale, 'maskScale', 0.3, 2.5, 0.02, 'x', 2)}
+          </div>
+        )}
       </div>
     </div>
   );

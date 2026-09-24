@@ -31,6 +31,7 @@ export interface Particle {
   stitchLength?: number;
   stitchThickness?: number;
   stitchSoftness?: number;
+  stitchTapered?: boolean; // true for Diagonal Sashiko — pinches the stitch mark to a point at both ends
   // Typography Box Material (News)
   cornerRadius?: number;
   isFilled?: boolean;
@@ -314,6 +315,27 @@ export function getOrCacheSvgImage(
     svgImageCache.set(cacheKey, img);
   }
 
+  return img.complete && img.naturalWidth > 0 ? img : null;
+}
+
+const editorialSvgImageCache = new Map<string, HTMLImageElement>();
+
+/**
+ * Same rasterize-and-cache pattern as getOrCacheSvgImage above, for the "crisp typography" overlay
+ * used by Molecule Wave Only / Editorial Collage (renderOriginalTypographyToCanvas below) when Object
+ * Mask is set to SVG LOGO — everywhere else in the app, an uploaded "mask" SVG is treated purely as a
+ * silhouette (its own colors are never shown; the app's own style color fills it), so this recolors
+ * the same way for consistency instead of rendering the logo's original artwork colors.
+ */
+function getOrCacheEditorialSvgImage(svgXml: string, color: string): HTMLImageElement | null {
+  const cacheKey = `${svgXml.length}_${color}`;
+  let img = editorialSvgImageCache.get(cacheKey);
+  if (!img) {
+    img = new Image();
+    const processedXml = recolorSvgXml(svgXml, color, 'theme');
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(processedXml);
+    editorialSvgImageCache.set(cacheKey, img);
+  }
   return img.complete && img.naturalWidth > 0 ? img : null;
 }
 
@@ -974,11 +996,18 @@ function buildTypographyBoxItems(
  * NEVER displaced (unlike Flow-mode dots elsewhere): these boxes are tightly packed with zero gap
  * tolerance, so moving them would tear the grid apart — only opacity responds to the ripple, exactly
  * as the task specifies ("preserving their original shapes... grid arrangement").
+ *
+ * Clip Mask support: same toggle and math as Original Stitch Pattern / Sine Mesh Net / Speed Stripe
+ * Field (HIDE BG DOTS, header bar or GRID tab) — when on, boxes whose center falls outside the current
+ * text (or an uploaded SVG logo set as Object Mask) are simply omitted, clipping the word grid to that
+ * silhouette instead of filling the whole canvas.
  */
 export function computeTypographyBoxParticles(
   grid: GridConfig,
   wave: WaveConfig,
   style: StyleConfig,
+  font: FontConfig,
+  sdf: SDFData,
   width: number,
   height: number,
   time: number,
@@ -989,6 +1018,10 @@ export function computeTypographyBoxParticles(
   const seed = wave.randomSeed || 42;
   const items = buildTypographyBoxItems(cfg, width, height, seed);
   const waveFrameCtx = createWaveFrameContext(width, height, time, wave, audioSignal, audioConfig);
+
+  const useTextMask = !!grid.hideBackgroundDots;
+  const sdfThreshold = grid.sdfThreshold * 20.0;
+  const sdfSoftness = grid.sdfSoftness * 15.0 + 1.0;
 
   const influence = Math.max(0, Math.min(1, cfg.opacityInfluence));
   const softness = Math.max(0.02, Math.min(1, cfg.opacitySoftness));
@@ -1004,11 +1037,18 @@ export function computeTypographyBoxParticles(
   // displacing a box.
   const ampFactor = Math.max(0, Math.min(1.5, waveFrameCtx.baseAmp));
 
-  const particles: Particle[] = new Array(items.length);
+  const particles: Particle[] = [];
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
     const centerX = item.x + item.w / 2;
     const centerY = item.y + item.h / 2;
+
+    if (useTextMask) {
+      const sdfDist = sampleSDF(sdf, centerX, centerY, width, height);
+      const distVal = font.invertText ? -sdfDist : sdfDist;
+      const normalizedDist = Math.max(0, Math.min(1, (distVal + sdfThreshold) / sdfSoftness));
+      if (normalizedDist <= 0.01) continue;
+    }
 
     // Ripple → opacity mapping (task item 3): sample the real wave engine at this box's center.
     calculateWave(centerX, centerY, width, height, time, wave, audioSignal, waveFrameCtx, sharedWaveRes, audioConfig);
@@ -1020,7 +1060,7 @@ export function computeTypographyBoxParticles(
     const rippleOpacity = cfg.minOpacity + (cfg.maxOpacity - cfg.minOpacity) * smoothT;
     const finalOpacity = cfg.baseOpacity * (1 - influence) + rippleOpacity * influence;
 
-    particles[i] = {
+    particles.push({
       x: centerX,
       y: centerY,
       radius: item.h / 2,
@@ -1037,7 +1077,7 @@ export function computeTypographyBoxParticles(
       strokeWidth: cfg.strokeWidth,
       cornerRadius: item.cornerRadius,
       isFilled: item.isFilled
-    };
+    });
   }
 
   return particles;
@@ -1849,10 +1889,12 @@ export function computeParticles(
   }
 
   // News — Typography Box Material uses its own dedicated word-box grid (see
-  // computeTypographyBoxParticles) rather than the text-masked grid below — the boxes' own words ARE
-  // the visible content, so no SDF masking applies. Gated on dotShape so no other preset is affected.
+  // computeTypographyBoxParticles) rather than the standard text-masked grid below — the packed word
+  // grid fills the canvas by default, but can optionally be clipped to a text/SVG-logo silhouette via
+  // HIDE BG DOTS (see the Clip Mask support inside computeTypographyBoxParticles). Gated on dotShape so
+  // no other preset is affected.
   if (grid.dotShape === 'typography_box') {
-    return computeTypographyBoxParticles(grid, wave, style, width, height, time, audioSignal, audioConfig);
+    return computeTypographyBoxParticles(grid, wave, style, font, sdf, width, height, time, audioSignal, audioConfig);
   }
 
   // Sports — Sine Mesh Net uses its own dedicated wireframe grid (see computeMeshNetParticles) rather
@@ -2172,6 +2214,7 @@ export function computeParticles(
       particle.stitchLength = baseLen;
       particle.stitchThickness = baseThick;
       particle.stitchSoftness = grid.stitchSoftness ?? 0.2;
+      particle.stitchTapered = mode === 'diagonal_sashiko';
     } else if (grid.dotShape === 'woven') {
       const isWarp = rowIdx % 2 === 0;
       const weaveLen = (grid.stitchLength ?? 14) * 1.4;
@@ -2288,7 +2331,11 @@ export function renderConstellationLinesToSVG(
 }
 
 /**
- * Renders original typography layer for Molecule Wave Only / Editorial Collage modes on HTML5 Canvas
+ * Renders original typography layer for Molecule Wave Only / Editorial Collage modes on HTML5 Canvas.
+ * When Object Mask is set to SVG LOGO (font.maskMode === 'svg_mask'), draws the uploaded logo crisply
+ * here instead of text — this "crisp headline" layer previously only ever knew how to draw font.text,
+ * so an uploaded SVG logo simply never appeared on it (the generative particle layer still honored the
+ * SVG as a mask, but this overlay silently ignored it).
  */
 export function renderOriginalTypographyToCanvas(
   ctx: CanvasRenderingContext2D,
@@ -2297,17 +2344,37 @@ export function renderOriginalTypographyToCanvas(
   canvasWidth: number,
   canvasHeight: number
 ): void {
-  const text = font.text.trim();
-  if (!text) return;
-
-  ctx.save();
-
   const scale = style.editorialHeadlineScale ?? 1.0;
   const offsetX = style.editorialHeadlineOffsetX ?? 0;
   const offsetY = style.editorialHeadlineOffsetY ?? 0;
   const color = style.editorialHeadlineColor || '#ffffff';
   const opacity = style.editorialHeadlineOpacity ?? 1.0;
 
+  if (font.maskMode === 'svg_mask' && font.maskSvgXml) {
+    const img = getOrCacheEditorialSvgImage(font.maskSvgXml, color);
+    if (!img) return; // still decoding — will draw on a later frame once the cache resolves
+
+    const maxW = canvasWidth * 0.6;
+    const maxH = canvasHeight * 0.45;
+    const intrinsicW = img.naturalWidth || 1;
+    const intrinsicH = img.naturalHeight || 1;
+    const baseScale = Math.min(maxW / intrinsicW, maxH / intrinsicH);
+    const drawW = intrinsicW * baseScale * scale;
+    const drawH = intrinsicH * baseScale * scale;
+    const cx = canvasWidth * 0.5 + offsetX;
+    const cy = canvasHeight * 0.5 + offsetY;
+
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    ctx.drawImage(img, cx - drawW / 2, cy - drawH / 2, drawW, drawH);
+    ctx.restore();
+    return;
+  }
+
+  const text = font.text.trim();
+  if (!text) return;
+
+  ctx.save();
   ctx.globalAlpha = opacity;
   ctx.fillStyle = color;
 
@@ -2342,14 +2409,54 @@ export function renderOriginalTypographyToSVG(
   canvasHeight: number,
   svgDoc: Document
 ): void {
-  const text = font.text.trim();
-  if (!text) return;
-
   const scale = style.editorialHeadlineScale ?? 1.0;
   const offsetX = style.editorialHeadlineOffsetX ?? 0;
   const offsetY = style.editorialHeadlineOffsetY ?? 0;
   const color = style.editorialHeadlineColor || '#ffffff';
   const opacity = style.editorialHeadlineOpacity ?? 1.0;
+
+  if (font.maskMode === 'svg_mask' && font.maskSvgXml) {
+    const processedXml = recolorSvgXml(font.maskSvgXml, color, 'theme');
+    try {
+      const parser = new DOMParser();
+      const parsedDoc = parser.parseFromString(processedXml, 'image/svg+xml');
+      const svgEl = parsedDoc.querySelector('svg');
+      if (!svgEl) return;
+
+      const viewBox = svgEl.getAttribute('viewBox');
+      const parts = viewBox ? viewBox.trim().split(/[\s,]+/).map(Number) : [];
+      const intrinsicW = parts.length === 4 && parts[2] > 0 ? parts[2] : parseFloat(svgEl.getAttribute('width') || '') || 100;
+      const intrinsicH = parts.length === 4 && parts[3] > 0 ? parts[3] : parseFloat(svgEl.getAttribute('height') || '') || 100;
+      const vbX = parts.length === 4 ? parts[0] : 0;
+      const vbY = parts.length === 4 ? parts[1] : 0;
+
+      const maxW = canvasWidth * 0.6;
+      const maxH = canvasHeight * 0.45;
+      const baseScale = Math.min(maxW / intrinsicW, maxH / intrinsicH);
+      const drawScale = baseScale * scale;
+      const cx = canvasWidth * 0.5 + offsetX;
+      const cy = canvasHeight * 0.5 + offsetY;
+
+      const logoGroup = svgDoc.createElementNS(SVG_NS, 'g');
+      logoGroup.setAttribute('opacity', opacity.toFixed(2));
+      logoGroup.setAttribute(
+        'transform',
+        `translate(${cx.toFixed(2)}, ${cy.toFixed(2)}) scale(${drawScale.toFixed(4)}) translate(${(-vbX - intrinsicW / 2).toFixed(2)}, ${(-vbY - intrinsicH / 2).toFixed(2)})`
+      );
+      for (const child of Array.from(svgEl.childNodes)) {
+        if (child.nodeType === Node.ELEMENT_NODE) {
+          logoGroup.appendChild(svgDoc.importNode(child, true));
+        }
+      }
+      svgGroup.appendChild(logoGroup);
+    } catch (e) {
+      console.warn('SVG parse error for editorial headline export:', e);
+    }
+    return;
+  }
+
+  const text = font.text.trim();
+  if (!text) return;
 
   const lines = text.split('\n');
   const baseFontSize = (font.fontSize || 120) * scale;
@@ -2635,7 +2742,17 @@ export function renderParticleToCanvas(ctx: CanvasRenderingContext2D, particle: 
     // Stitched thread mark with subtle needle entry/exit pinch and fiber highlight
     ctx.fillStyle = fillColor;
     ctx.beginPath();
-    if ('roundRect' in ctx && typeof ctx.roundRect === 'function') {
+    if (particle.stitchTapered) {
+      // Diagonal Sashiko: a pointed "leaf/eye" mark — widest at the middle, pinched to a sharp point
+      // at each end — instead of the rounded-pill mark every other stitch mode uses.
+      const tip = len * 0.22;
+      ctx.moveTo(-len / 2, 0);
+      ctx.quadraticCurveTo(-tip, -thick / 2, 0, -thick / 2);
+      ctx.quadraticCurveTo(tip, -thick / 2, len / 2, 0);
+      ctx.quadraticCurveTo(tip, thick / 2, 0, thick / 2);
+      ctx.quadraticCurveTo(-tip, thick / 2, -len / 2, 0);
+      ctx.closePath();
+    } else if ('roundRect' in ctx && typeof ctx.roundRect === 'function') {
       ctx.roundRect(-len / 2, -thick / 2, len, thick, thick / 2);
     } else {
       ctx.ellipse(0, 0, len / 2, thick / 2, 0, 0, Math.PI * 2);
@@ -2743,8 +2860,22 @@ export function renderParticleToCanvas(ctx: CanvasRenderingContext2D, particle: 
       ctx.font = `bold ${particle.fontSize || 52}px "${particle.fontFamily || 'Arial'}", sans-serif`;
       ctx.fillStyle = particle.glyphColor || '#000000';
       ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(particle.char.toUpperCase(), 0, h * 0.02);
+      const label = particle.char.toUpperCase();
+      // `textBaseline: 'middle'` centers on the FONT's declared ascent/descent box, which reserves
+      // room for descenders (g/y/p/...) that never appear in these all-caps words — so the visible
+      // glyphs consistently rode high inside the pill. Measuring the glyphs' actual rendered ink
+      // (actualBoundingBoxAscent/Descent) and centering on THAT instead gives true optical vertical
+      // centering regardless of the word's shape. Falls back to 'middle' on engines without ink
+      // metrics (older Safari).
+      const metrics = ctx.measureText(label);
+      if (typeof metrics.actualBoundingBoxAscent === 'number' && typeof metrics.actualBoundingBoxDescent === 'number') {
+        ctx.textBaseline = 'alphabetic';
+        const inkCenterOffset = (metrics.actualBoundingBoxAscent - metrics.actualBoundingBoxDescent) / 2;
+        ctx.fillText(label, 0, inkCenterOffset);
+      } else {
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, 0, 0);
+      }
     }
   } else if (shape === 'modular_strip') {
     // Flat, hard-edged vertical color block — no rotation, no soft gradient, per the
@@ -2978,16 +3109,34 @@ export function renderParticleToSVG(
     const len = particle.width ?? radius * 3.5;
     const thick = particle.height ?? Math.max(1.2, radius * 0.4);
     const angleDeg = particle.angleDeg ?? 0;
-    const rect = svgDoc.createElementNS(SVG_NS, 'rect');
-    rect.setAttribute('x', (-len / 2).toFixed(2));
-    rect.setAttribute('y', (-thick / 2).toFixed(2));
-    rect.setAttribute('width', len.toFixed(2));
-    rect.setAttribute('height', thick.toFixed(2));
-    rect.setAttribute('rx', (thick / 2).toFixed(2));
-    rect.setAttribute('fill', fillColor);
-    rect.setAttribute('opacity', opacity.toFixed(2));
-    rect.setAttribute('transform', `translate(${x.toFixed(2)}, ${y.toFixed(2)}) rotate(${angleDeg.toFixed(1)})`);
-    svgGroup.appendChild(rect);
+    if (particle.stitchTapered) {
+      // Diagonal Sashiko: same pointed "leaf/eye" mark as the Canvas branch, as a vector path.
+      const tip = len * 0.22;
+      const path = svgDoc.createElementNS(SVG_NS, 'path');
+      path.setAttribute(
+        'd',
+        `M ${(-len / 2).toFixed(2)},0 ` +
+          `Q ${(-tip).toFixed(2)},${(-thick / 2).toFixed(2)} 0,${(-thick / 2).toFixed(2)} ` +
+          `Q ${tip.toFixed(2)},${(-thick / 2).toFixed(2)} ${(len / 2).toFixed(2)},0 ` +
+          `Q ${tip.toFixed(2)},${(thick / 2).toFixed(2)} 0,${(thick / 2).toFixed(2)} ` +
+          `Q ${(-tip).toFixed(2)},${(thick / 2).toFixed(2)} ${(-len / 2).toFixed(2)},0 Z`
+      );
+      path.setAttribute('fill', fillColor);
+      path.setAttribute('opacity', opacity.toFixed(2));
+      path.setAttribute('transform', `translate(${x.toFixed(2)}, ${y.toFixed(2)}) rotate(${angleDeg.toFixed(1)})`);
+      svgGroup.appendChild(path);
+    } else {
+      const rect = svgDoc.createElementNS(SVG_NS, 'rect');
+      rect.setAttribute('x', (-len / 2).toFixed(2));
+      rect.setAttribute('y', (-thick / 2).toFixed(2));
+      rect.setAttribute('width', len.toFixed(2));
+      rect.setAttribute('height', thick.toFixed(2));
+      rect.setAttribute('rx', (thick / 2).toFixed(2));
+      rect.setAttribute('fill', fillColor);
+      rect.setAttribute('opacity', opacity.toFixed(2));
+      rect.setAttribute('transform', `translate(${x.toFixed(2)}, ${y.toFixed(2)}) rotate(${angleDeg.toFixed(1)})`);
+      svgGroup.appendChild(rect);
+    }
   } else if (shape === 'woven') {
     const len = particle.width ?? radius * 3.0;
     const thick = particle.height ?? Math.max(1.5, radius * 0.5);

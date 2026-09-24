@@ -782,11 +782,14 @@ export const PRESETS: Preset[] = [
           strokeColor: '#000000',
           textColor: '#000000',
           strokeWidth: 3,
-          baseOpacity: 0.12,
-          minOpacity: 0.08,
+          // Kept moderate (not near-zero) so the full word grid stays legible at rest — the ripple
+          // then reads as a brightening pulse riding on top of a visible composition, instead of an
+          // almost-all-or-nothing flicker that hid most of the grid between wavefronts.
+          baseOpacity: 0.38,
+          minOpacity: 0.35,
           maxOpacity: 1.0,
-          opacityInfluence: 0.9,
-          opacitySoftness: 0.45,
+          opacityInfluence: 0.55,
+          opacitySoftness: 0.5,
           invertOpacity: false
         }
       },
@@ -794,10 +797,15 @@ export const PRESETS: Preset[] = [
         mode: 'flow',
         pattern: 'circular',
         waveType: 'pulse',
-        waveSpeed: 0.6,
-        waveFrequency: 1.0,
+        waveSpeed: 0.5,
+        // Ring spacing (2*PI / (waveFrequency*0.05) px) at the old 1.0 produced a ~126px ring period —
+        // close enough to the box grid's own ~95-115px pitch to alias against it, so the ripple read as
+        // patchy/random noise instead of one clean expanding ring. Lowered so the ring period is much
+        // larger than the box pitch and the box grid's own bounding diagonal, giving a single readable
+        // wavefront that sweeps outward from center instead of several interfering rings at once.
+        waveFrequency: 0.22,
         waveAmplitude: 1.0,
-        waveSoftness: 0.4,
+        waveSoftness: 0.5,
         frequencyThickness: 1.0,
         radialThickness: 0.0,
         originX: 0.5,

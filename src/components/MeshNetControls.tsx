@@ -198,6 +198,23 @@ export const MeshNetControls: React.FC<MeshNetControlsProps> = ({ state, onUpdat
         <span className="text-[11px] font-bold uppercase text-emerald-400 flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5" /> STYLE & GLOW
         </span>
+        <div className="flex items-center justify-between pb-1 border-b border-[#1a1a1a]">
+          <div>
+            <span className="block text-[10px] uppercase text-white font-bold">BACKGROUND</span>
+            <span className="text-[9px] text-[#777]">Same as the header's TRANSPARENT toggle</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => onUpdateState((prev) => ({ ...prev, transparentBg: !prev.transparentBg }))}
+            className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase border transition-all ${
+              state.transparentBg
+                ? 'bg-[#181818] text-[#777] border-[#333]'
+                : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
+            }`}
+          >
+            {state.transparentBg ? 'OFF' : 'ON'}
+          </button>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           {colorField('LINE COLOR', cfg.lineColor, 'lineColor')}
           {colorField('NODE COLOR', cfg.nodeColor, 'nodeColor')}

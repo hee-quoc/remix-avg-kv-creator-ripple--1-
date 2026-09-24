@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { FlipDiscConfig } from './types';
 import { FlipDiscGLRenderer } from './flipDiscGL';
+import { SDFData } from '../utils/sdf';
+import { resolveFlipDiscMask, flipDiscMaskKey } from './flipDiscMask';
 
 export interface FlipDiscImageActions {
   loadFront: (file: File) => void;
@@ -36,6 +38,8 @@ export const FlipDiscCanvas: React.FC<FlipDiscCanvasProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<FlipDiscGLRenderer | null>(null);
   const configRef = useRef<FlipDiscConfig>(config);
+  const maskRef = useRef<SDFData | null>(null);
+  const maskKeyRef = useRef<string>('none');
   const timeRef = useRef<number>(0);
   const isPlayingRef = useRef<boolean>(isPlaying);
   const animationFrameRef = useRef<number | null>(null);
@@ -52,6 +56,24 @@ export const FlipDiscCanvas: React.FC<FlipDiscCanvasProps> = ({
   useEffect(() => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
+
+  // Rebuild the Clip Mask (built-in shape or uploaded SVG logo) with light debouncing to keep slider
+  // scrubbing fluid — mirrors KineticCanvas.tsx's SDF regeneration effect. Cheap for 'none'/'shape'
+  // (synchronous), and cancellation-safe for the async SVG-image-decode path.
+  useEffect(() => {
+    let cancelMask: (() => void) | null = null;
+    const timer = setTimeout(() => {
+      cancelMask = resolveFlipDiscMask(config, (mask) => {
+        maskRef.current = mask;
+        maskKeyRef.current = flipDiscMaskKey(config);
+      });
+    }, 60);
+    return () => {
+      clearTimeout(timer);
+      if (cancelMask) cancelMask();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.maskMode, config.maskShapeType, config.maskSvgDataUrl, config.maskSvgXml, config.maskScale]);
 
   // Resize handling
   useEffect(() => {
@@ -136,7 +158,7 @@ export const FlipDiscCanvas: React.FC<FlipDiscCanvasProps> = ({
         timeRef.current += dt;
       }
 
-      renderer.render(configRef.current, timeRef.current, canvas.width, canvas.height);
+      renderer.render(configRef.current, timeRef.current, canvas.width, canvas.height, maskRef.current, maskKeyRef.current);
 
       frameCountRef.current++;
       if (now - fpsTimerRef.current >= 500) {
@@ -173,7 +195,7 @@ export const FlipDiscCanvas: React.FC<FlipDiscCanvasProps> = ({
       offscreen.height = exportH;
       try {
         const exportRenderer = new FlipDiscGLRenderer(offscreen);
-        exportRenderer.render(configRef.current, timeRef.current, exportW, exportH);
+        exportRenderer.render(configRef.current, timeRef.current, exportW, exportH, maskRef.current, maskKeyRef.current);
         const dataUrl = offscreen.toDataURL('image/png');
         exportRenderer.dispose();
         const link = document.createElement('a');

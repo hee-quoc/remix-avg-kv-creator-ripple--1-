@@ -13,8 +13,11 @@
 // "engine mode" alongside (not replacing) the Kinetic engine.
 // ============================================================================
 
+import { ObjectShapeType } from '../types';
+
 export type FlipDiscShape = 'clover' | 'circle' | 'square';
 export type FlipDiscMaterial = 'matte' | 'glossy' | 'iridescent' | 'metallic';
+export type FlipDiscMaskMode = 'none' | 'shape' | 'svg';
 
 export interface FlipDiscConfig {
   // Shape
@@ -45,6 +48,18 @@ export interface FlipDiscConfig {
   rippleDelay: number; // how strongly distance-from-center delays a disc's flip phase, default 0.42
   motionSoftness: number; // the flip's sinusoidal easing strength, default 0.52 (reference's fixed value)
   waveTiming: number; // extra multiplier on top of rippleDelay's spatial falloff, default 1.0 = no change
+
+  // Clip Mask — which discs in the density x density field actually get built into the mesh, reusing
+  // the SAME shape library (ObjectShapeType) and SVG-logo-as-mask pipeline (generateTextSDF /
+  // generateImageSDF / sampleSDF in ../utils/sdf) the main Kinetic engine's Object Mask panel already
+  // uses — discs outside the mask silhouette are simply omitted, revealing the shape/logo in the grid.
+  // Default 'none' so every existing Children preset renders exactly as before.
+  maskMode: FlipDiscMaskMode;
+  maskShapeType: ObjectShapeType; // used when maskMode === 'shape'
+  maskSvgXml?: string; // used when maskMode === 'svg' — raw SVG text (for aspect-ratio-correct rasterization)
+  maskSvgDataUrl?: string; // used when maskMode === 'svg' — data URL loaded into an <img> to rasterize
+  maskSvgName?: string;
+  maskScale: number; // 0.3 - 2.5, uniform zoom of the mask silhouette within the disc field
 }
 
 export const DEFAULT_FLIP_DISC_CONFIG: FlipDiscConfig = {
@@ -66,7 +81,10 @@ export const DEFAULT_FLIP_DISC_CONFIG: FlipDiscConfig = {
   flipSpeed: 1.0,
   rippleDelay: 0.42,
   motionSoftness: 0.52,
-  waveTiming: 1.0
+  waveTiming: 1.0,
+  maskMode: 'none',
+  maskShapeType: 'circle',
+  maskScale: 1.0
 };
 
 export interface FlipDiscPreset {

@@ -1,4 +1,5 @@
 import { FlipDiscConfig } from './types';
+import { SDFData, sampleSDF } from '../utils/sdf';
 
 // ============================================================
 // PRISMATIC FLIP CIRCLE — ported from the user's p5.js/WebGL reference sketch into a
@@ -316,9 +317,14 @@ export class FlipDiscGLRenderer {
     else this.hasBackImage = false;
   }
 
-  private rebuildMeshIfNeeded(shape: FlipDiscConfig['shape'], density: number): void {
+  private rebuildMeshIfNeeded(
+    shape: FlipDiscConfig['shape'],
+    density: number,
+    mask: SDFData | null,
+    maskKey: string
+  ): void {
     const count = Math.max(4, Math.round(density));
-    const key = `${shape}_${count}`;
+    const key = `${shape}_${count}_${maskKey}`;
     if (key === this.lastMeshKey) return;
     this.lastMeshKey = key;
 
@@ -344,6 +350,13 @@ export class FlipDiscGLRenderer {
         const cx = col - half;
         const cy = row - half;
         if (Math.hypot(cx, cy) > fieldRadius) continue;
+        if (mask) {
+          // Same normalized-0..1, y-up convention the mask SDF is authored in (see resolveFlipDiscMask
+          // / generateTextSDF/generateImageSDF) — positive distance = inside the shape/logo silhouette.
+          const u = 0.5 + cx / (2 * half);
+          const v = 0.5 - cy / (2 * half);
+          if (sampleSDF(mask, u, v) <= 0) continue;
+        }
         for (let i = 0; i < N; i++) {
           const p = perimeter[i];
           const q = perimeter[(i + 1) % N];
@@ -375,9 +388,16 @@ export class FlipDiscGLRenderer {
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
   }
 
-  render(config: FlipDiscConfig, time: number, widthPx: number, heightPx: number): void {
+  render(
+    config: FlipDiscConfig,
+    time: number,
+    widthPx: number,
+    heightPx: number,
+    mask: SDFData | null = null,
+    maskKey = 'none'
+  ): void {
     const gl = this.gl;
-    this.rebuildMeshIfNeeded(config.shape, config.density);
+    this.rebuildMeshIfNeeded(config.shape, config.density, mask, maskKey);
 
     const period = FLIP_SECONDS_BASE / Math.max(0.05, config.flipSpeed);
     const phase = ((time % period) / period) * Math.PI * 2;

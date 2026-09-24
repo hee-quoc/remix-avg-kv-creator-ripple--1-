@@ -107,6 +107,12 @@ export const TypographyBoxControls: React.FC<TypographyBoxControlsProps> = ({ st
         WAVE tab above; this panel only sets the box content/look and how strongly it reacts.
       </p>
 
+      <p className="text-[8px] text-[#666] font-sans leading-relaxed">
+        Clip Mask: this grid fills the canvas by default. Turn on <b>HIDE BG DOTS</b> (header bar or
+        GRID tab) to clip it to the current text — or an SVG logo set as Object Mask in the TEXT tab —
+        so only boxes inside that silhouette stay visible.
+      </p>
+
       {/* Content */}
       <div className="space-y-2.5 p-3 bg-[#0d0d12] border border-[#262630] rounded-lg">
         <span className="text-[11px] font-bold uppercase text-amber-400 flex items-center gap-1.5">

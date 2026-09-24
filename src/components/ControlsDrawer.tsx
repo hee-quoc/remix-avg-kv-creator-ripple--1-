@@ -286,7 +286,9 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
               {state.grid.dotShape === 'typography_box' && (
                 <p className="text-[9px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5 mt-1.5 leading-relaxed">
                   The Typography Box Material has its own word list, not this field — edit it from the
-                  GRID tab's "Typography Box Material" panel. This field is not used by the current shape.
+                  GRID tab's "Typography Box Material" panel. This field fills the canvas by default;
+                  turn on <b>HIDE BG DOTS</b> (header bar or GRID tab) to clip the word grid to this
+                  text (or an SVG logo set as Object Mask below) instead.
                 </p>
               )}
               {state.grid.dotShape === 'mesh_net' && (
