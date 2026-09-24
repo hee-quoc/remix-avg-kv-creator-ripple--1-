@@ -342,19 +342,20 @@ export const PRESETS: Preset[] = [
     }
   },
 
-  // 04 — MARKET FLUCTUATION
+  // 04 — MARKET FLUCTUATION (Technology — merged with the former Finance category, see
+  // PresetGallery.tsx's category tabs / PresetCategory in types.ts)
   {
     id: 'market_fluctuation',
     name: '04. Market Fluctuation',
-    category: 'Finance',
-    description: 'Financial market volatility with directional chart waves, fluctuating peaks, and editable multi-color dots.',
-    formulaDescription: 'Abstract directional wave geometry modeled after stock ticker candles and trend curves, rendered with multi-color dots and fluctuating chart motion.',
+    category: 'Technology',
+    description: 'Market data reimagined as a scrolling ASCII ticker field — green and blue characters modulated by a concentric ripple.',
+    formulaDescription: 'Dense ASCII character grid (ticker/market symbols) colored green-to-blue, deformed by the same concentric circular wave every preset uses.',
     compositionMode: 'full_molecule',
-    defaultVisualStyle: 'extruded_particles',
-    tags: ['Finance', 'Chart Wave', 'Multi-Color Dots', 'Market Data'],
+    defaultVisualStyle: 'binary_typography',
+    tags: ['Technology', 'Finance', 'ASCII Molecule', 'Market Data'],
     config: {
       compositionMode: 'full_molecule',
-      activeVisualStyle: 'extruded_particles',
+      activeVisualStyle: 'binary_typography',
       font: {
         text: 'MARKET IN\nMOTION',
         fontFamily: 'Syne',
@@ -370,48 +371,48 @@ export const PRESETS: Preset[] = [
         density: 11,
         minRadius: 1.4,
         maxRadius: 6.8,
-        dotShape: 'circle',
+        dotShape: 'ascii',
         sdfThreshold: 0.49,
         sdfSoftness: 0.75,
-        hideBackgroundDots: false
+        hideBackgroundDots: false,
+        asciiCharset: '0 1 $ % + - . : # @',
+        asciiFontSize: 14,
+        asciiVariableSize: true,
+        asciiDistribution: 'grid'
       },
+      // Concentric, in-phase circular ripple from canvas center — no per-point frequency/amplitude/
+      // size jitter, so every dot on a given ring stays in phase with its neighbors instead of
+      // reading as scattered noise.
       wave: {
-        mode: 'stable',
-        pattern: 'market_chart',
+        mode: 'flow',
+        pattern: 'circular',
         waveType: 'sine',
-        waveSpeed: 0.75,
-        waveFrequency: 1.5,
-        waveAmplitude: 1.1,
-        waveSoftness: 0.35,
-        vectorDistortion: 1.4,
-        linearAngle: 32,
-        frequencyVariation: 0.55,
-        amplitudeVariation: 0.7,
-        sizeRandomness: 0.5,
+        waveSpeed: 0.6,
+        waveFrequency: 0.9,
+        waveAmplitude: 1.0,
+        waveSoftness: 0.4,
+        vectorDistortion: 1.0,
+        frequencyVariation: 0.0,
+        amplitudeVariation: 0.0,
+        sizeRandomness: 0.0,
         randomSeed: 404,
-        originX: 0.2,
-        originY: 0.7
+        originX: 0.5,
+        originY: 0.5
       },
+      // Hard-set green-to-blue ASCII palette, matching Encoded Reality's Technology look.
       style: {
-        theme: 'solarized',
-        visualStyle: 'extruded_particles',
-        dotColor: '#10b981',
-        bgColor: '#05130e',
-        accentColor: '#f59e0b',
-        enableColorGradient: false,
-        enableMultiColor: true,
-        multiColorPalette: ['#10b981', '#ef4444', '#06b6d4', '#f59e0b', '#8b5cf6'],
-        multiColorDistribution: 'palette_list',
+        theme: 'neon_scientific',
+        visualStyle: 'binary_typography',
+        dotColor: '#22c55e',
+        bgColor: '#03140f',
+        accentColor: '#3b82f6',
+        enableColorGradient: true,
+        gradientColor: '#3b82f6',
         vignette: true,
         uniformColorBrightness: false,
         showRadarGrid: true,
         radarGridOpacity: 0.15,
-        showEmitterHandle: false,
-        extrusionDepth: 16,
-        extrusionAngle: 125,
-        extrusionLightIntensity: 0.8,
-        constellationMaxDistance: 45,
-        constellationShowLabels: true
+        showEmitterHandle: false
       }
     }
   },
@@ -421,11 +422,11 @@ export const PRESETS: Preset[] = [
     id: 'velocity_curves',
     name: '05. Velocity Curves',
     category: 'Automotive',
-    description: 'Magnetic needle vector field simulation with dynamic noise forces, neighbor tension coupling, and interactive mouse-press wave propagation.',
-    formulaDescription: '60x60 magnetic dipole array rotating with Perlin noise forces and neighbor tension coupling; mouse press propagates magnetic wave shockwaves.',
+    description: 'Tangent-line vector field curving around a central impact point, activated by a clean concentric ripple.',
+    formulaDescription: 'A dense tangent-line dot field whose orientation reads tangent to the circular wave origin, driven by the same in-phase concentric ripple engine as every other preset.',
     compositionMode: 'full_molecule',
     defaultVisualStyle: 'kinetic_vortex',
-    tags: ['Automotive', 'Magnetic Needle', 'Vector Field', 'Interactive Wave'],
+    tags: ['Automotive', 'Vector Field', 'Tangent Lines', 'Concentric Ripple'],
     config: {
       compositionMode: 'full_molecule',
       activeVisualStyle: 'kinetic_vortex',
@@ -444,27 +445,30 @@ export const PRESETS: Preset[] = [
         density: 18,
         minRadius: 2.0,
         maxRadius: 8.0,
-        dotShape: 'magnetic_needle',
-        magneticGridN: 60,
-        magneticScale: 2.4,
-        magneticLineLength: 24,
-        magneticWeight: 4,
+        // 'magnetic_needle' had no renderer at all (the standalone magneticFieldSim.ts it was meant
+        // for was never wired in — see task 5 cleanup) and silently fell back to plain circles.
+        // Replaced with 'tangent_line', a real, working shape whose angle already reads tangent to
+        // the circular wave's origin — the same "flow lines curving around a center" feel, but
+        // actually rendered.
+        dotShape: 'tangent_line',
+        lineLength: 4.5,
+        lineThickness: 2.2,
         sdfThreshold: 0.5,
         sdfSoftness: 0.75,
         hideBackgroundDots: false
       },
+      // Concentric, in-phase circular ripple from canvas center (was a directional linear sweep).
       wave: {
         mode: 'flow',
-        pattern: 'linear',
-        waveType: 'pulse',
-        waveSpeed: 0.25,
-        waveFrequency: 2.20,
-        waveAmplitude: 0.00,
-        waveSoftness: 0.10,
-        frequencyThickness: 0.70,
+        pattern: 'circular',
+        waveType: 'sine',
+        waveSpeed: 0.6,
+        waveFrequency: 1.0,
+        waveAmplitude: 1.0,
+        waveSoftness: 0.4,
+        frequencyThickness: 1.0,
         radialThickness: 0.0,
-        linearAngle: 42,
-        vectorDistortion: 1.70,
+        vectorDistortion: 1.0,
         blendBack: 0.70,
         originX: 0.5,
         originY: 0.5,
@@ -561,85 +565,10 @@ export const PRESETS: Preset[] = [
     }
   },
 
-  // 07 — KINETIC PAVILION (Culture)
-  {
-    id: 'kinetic_pavilion',
-    name: '07. Kinetic Pavilion',
-    category: 'Culture',
-    description: 'Parametric architectural structures, undulating facade louvers, and cultural installation geometry.',
-    formulaDescription: '3D structural particle extrusion with parametric wave undulation and clean typography, evoking dynamic kinetic pavilion facades.',
-    compositionMode: 'editorial_collage',
-    defaultVisualStyle: 'extruded_particles',
-    tags: ['Culture', 'Architecture', 'Kinetic Pavilion', 'Parametric 2.5D'],
-    config: {
-      compositionMode: 'editorial_collage',
-      activeVisualStyle: 'extruded_particles',
-      font: {
-        text: 'PAVILION\nBIENNALE',
-        fontFamily: 'Syne',
-        fontSize: 130,
-        fontWeight: 800,
-        letterSpacing: 4,
-        lineHeight: 0.95,
-        textAlign: 'center',
-        invertText: false
-      },
-      grid: {
-        gridType: 'square',
-        density: 12,
-        minRadius: 1.5,
-        maxRadius: 7.0,
-        dotShape: 'extruded_block',
-        sdfThreshold: 0.5,
-        sdfSoftness: 0.75,
-        hideBackgroundDots: false
-      },
-      wave: {
-        mode: 'stable',
-        pattern: 'spiral',
-        waveType: 'sine',
-        waveSpeed: 0.65,
-        waveFrequency: 1.2,
-        waveAmplitude: 0.9,
-        waveSoftness: 0.4,
-        frequencyThickness: 1.25,
-        originX: 0.5,
-        originY: 0.5,
-        frequencyVariation: 0.35,
-        amplitudeVariation: 0.45,
-        sizeRandomness: 0.35,
-        randomSeed: 707
-      },
-      style: {
-        theme: 'swiss_editorial',
-        visualStyle: 'extruded_particles',
-        dotColor: '#f1f5f9',
-        bgColor: '#0f172a',
-        accentColor: '#38bdf8',
-        enableColorGradient: true,
-        gradientColor: '#94a3b8',
-        vignette: true,
-        uniformColorBrightness: false,
-        showRadarGrid: true,
-        radarGridOpacity: 0.16,
-        showEmitterHandle: false,
-        extrusionDepth: 18,
-        extrusionAngle: 60,
-        extrusionLightIntensity: 0.85,
-        editorialHeadlineOffsetX: 0,
-        editorialHeadlineOffsetY: 200,
-        editorialHeadlineScale: 1.05,
-        editorialHeadlineColor: '#f8fafc',
-        editorialHeadlineOpacity: 1.0,
-        editorialLayerOrder: 'behind_wave'
-      }
-    }
-  },
-
-  // 08 — CULTURAL STITCH (Culture)
+  // 07 — CULTURAL STITCH (Culture)
   {
     id: 'heritage_echo',
-    name: '08. Cultural Stitch',
+    name: '07. Cultural Stitch',
     category: 'Culture',
     description: 'Hand-crafted embroidered stitch units and woven thread materiality animating with textile tension.',
     formulaDescription: 'Generative sashiko and embroidery thread stitches animating dynamically into place with thread tension, crafted marks, and rich textile resonance.',
@@ -664,12 +593,11 @@ export const PRESETS: Preset[] = [
         density: 12,
         minRadius: 1.2,
         maxRadius: 6.5,
-        // Default material is now the exact-source Original Stitch Pattern (120x120 rotated-ellipse
-        // grid — see computeOriginalStitchParticles). The prior default 'stitch' thread material is
-        // untouched and still fully selectable from 01_BUILT-IN DOT PARTICLES — nothing about it was
-        // removed, only which shape this preset opens with.
-        dotShape: 'original_stitch',
-        culturalMaterial: 'original_stitch',
+        // Hard-set to the classic 'stitch' thread material — Diagonal Sashiko mode, whose marks now
+        // pinch to a point at both ends (the "grain" shape) — instead of the Original Stitch Pattern
+        // checkerboard this preset briefly defaulted to.
+        dotShape: 'stitch',
+        culturalMaterial: 'stitch',
         stitchLength: 16,
         stitchThickness: 3.2,
         stitchAngleMode: 'diagonal_sashiko',
@@ -680,10 +608,9 @@ export const PRESETS: Preset[] = [
         sdfSoftness: 0.8,
         hideBackgroundDots: false
       },
+      // Concentric, in-phase circular ripple from dead-center — no secondary origin offset and no
+      // per-point frequency/amplitude/size jitter, so the ripple reads as one clean radiating wave.
       wave: {
-        // Gentler defaults than the previous 'stitch' material: at 14,400 densely-packed elements,
-        // full displacement reads as noise rather than a ripple — kept moderate so the woven pattern
-        // stays recognizable while animating, per the task's own caution on this point.
         mode: 'flow',
         pattern: 'circular',
         waveType: 'sine',
@@ -697,11 +624,11 @@ export const PRESETS: Preset[] = [
         radialThickness: 0.2,
         originX: 0.5,
         originY: 0.5,
-        secondaryOriginX: 0.6,
+        secondaryOriginX: 0.5,
         secondaryOriginY: 0.5,
-        frequencyVariation: 0.15,
-        amplitudeVariation: 0.15,
-        sizeRandomness: 0.1,
+        frequencyVariation: 0.0,
+        amplitudeVariation: 0.0,
+        sizeRandomness: 0.0,
         randomSeed: 808
       },
       style: {
@@ -730,10 +657,10 @@ export const PRESETS: Preset[] = [
     }
   },
 
-  // 09 — GLOBAL WIRE (News)
+  // 08 — GLOBAL WIRE (News)
   {
     id: 'global_wire',
-    name: '09. Global Wire',
+    name: '08. Global Wire',
     category: 'News',
     description: 'A cached grid of colorful multilingual word-boxes whose opacity is driven live by the Ripple Engine.',
     formulaDescription: 'Packed rounded-rect typography boxes (existing Typography Box Material) sampled by the shared wave engine at each box center — opacity, not position, follows the wavefront.',
@@ -765,13 +692,16 @@ export const PRESETS: Preset[] = [
         // Exact port of the source material's own defaults (words, palette, geometry) — see
         // DEFAULT_TYPOGRAPHY_BOX_CONFIG in particleRenderer.ts. Spelled out here too so the preset
         // is self-documenting and independently editable from the GRID tab without surprises.
+        // Hard-set per the user's own hand-tuned panel values (Box Geometry + Ripple Response) —
+        // boxes are fully hidden at rest (baseOpacity/minOpacity 0) and only reveal where the
+        // (now properly centered, see buildTypographyBoxItems) circular ripple actually passes.
         typographyBox: {
           words: ['caffeine', 'Hola!', 'Hallo!', 'Bonjour!', 'caffeine', '你好', 'こんにちは', 'Привет'],
           colorPalette: ['#FFF533', '#F64FA7', '#73F849'],
           fontFamily: 'Arial',
           fontSize: 52,
-          boxHeight: 75,
-          horizontalPadding: 40,
+          boxHeight: 58,
+          horizontalPadding: 34,
           marginX: 20,
           marginY: 20,
           cornerRadius: 50,
@@ -782,13 +712,10 @@ export const PRESETS: Preset[] = [
           strokeColor: '#000000',
           textColor: '#000000',
           strokeWidth: 3,
-          // Kept moderate (not near-zero) so the full word grid stays legible at rest — the ripple
-          // then reads as a brightening pulse riding on top of a visible composition, instead of an
-          // almost-all-or-nothing flicker that hid most of the grid between wavefronts.
-          baseOpacity: 0.38,
-          minOpacity: 0.35,
+          baseOpacity: 0.0,
+          minOpacity: 0.0,
           maxOpacity: 1.0,
-          opacityInfluence: 0.55,
+          opacityInfluence: 0.92,
           opacitySoftness: 0.5,
           invertOpacity: false
         }
@@ -796,15 +723,15 @@ export const PRESETS: Preset[] = [
       wave: {
         mode: 'flow',
         pattern: 'circular',
-        waveType: 'pulse',
-        waveSpeed: 0.5,
+        waveType: 'sine',
+        waveSpeed: 1.6,
         // Ring spacing (2*PI / (waveFrequency*0.05) px) at the old 1.0 produced a ~126px ring period —
         // close enough to the box grid's own ~95-115px pitch to alias against it, so the ripple read as
         // patchy/random noise instead of one clean expanding ring. Lowered so the ring period is much
         // larger than the box pitch and the box grid's own bounding diagonal, giving a single readable
         // wavefront that sweeps outward from center instead of several interfering rings at once.
-        waveFrequency: 0.22,
-        waveAmplitude: 1.0,
+        waveFrequency: 0.2,
+        waveAmplitude: 1.35,
         waveSoftness: 0.5,
         frequencyThickness: 1.0,
         radialThickness: 0.0,
@@ -835,10 +762,10 @@ export const PRESETS: Preset[] = [
     }
   },
 
-  // 10 — SINE MESH NET (Sports)
+  // 09 — SINE MESH NET (Sports)
   {
     id: 'sine_mesh_net',
-    name: '10. Sine Mesh Net',
+    name: '09. Sine Mesh Net',
     category: 'Sports',
     description: '3D Net Vibration / Goal Impact — a wireframe sports net rippling with sine-wave motion from an impact point.',
     formulaDescription: 'A wireframe mesh grid displaced by the existing circular wave engine from the Ripple Origin, reading like a ball-impact ripple traveling through a net.',
@@ -924,10 +851,10 @@ export const PRESETS: Preset[] = [
     }
   },
 
-  // 11 — SPEED STRIPE FIELD (Sports)
+  // 10 — SPEED STRIPE FIELD (Sports)
   {
     id: 'speed_stripe_field',
-    name: '11. Speed Stripe Field',
+    name: '10. Speed Stripe Field',
     category: 'Sports',
     description: 'Velocity Dash — bold diagonal dash units in yellow-on-black, activated by a directional speed pulse.',
     formulaDescription: 'A field of diagonal dash units sampling the existing wave engine at each dash center, with a local directional stagger sweeping the ripple across the field.',
@@ -956,17 +883,19 @@ export const PRESETS: Preset[] = [
         sdfThreshold: 0.5,
         sdfSoftness: 0.8,
         hideBackgroundDots: false,
+        // More dash "seeds" packed into a much bigger field (closer to full-canvas, near-square
+        // aspect) so the ripple reads as an expanding circle rather than a small rectangle.
         speedStripe: {
           dashAngle: 35,
-          dashWidth: 52,
-          dashHeight: 16,
+          dashWidth: 58,
+          dashHeight: 18,
           spacingX: 6,
           spacingY: 6,
           rowOffset: 0.5,
-          columnCount: 12,
-          rowCount: 9,
-          fieldWidth: 0.72,
-          fieldHeight: 0.5,
+          columnCount: 18,
+          rowCount: 13,
+          fieldWidth: 0.9,
+          fieldHeight: 0.82,
           scaleProgression: 0,
           variationMode: 'wave_activated',
           rippleInfluence: 0.9,
@@ -989,7 +918,10 @@ export const PRESETS: Preset[] = [
         pattern: 'circular',
         waveType: 'pulse',
         waveSpeed: 1.1,
-        waveFrequency: 1.3,
+        // Ring period stays comfortably above the (now bigger) dash field's own column pitch, so
+        // several concentric rings ("seeds") can be visible across the field at once without
+        // aliasing into the patchy/moiré look that a too-high frequency caused before.
+        waveFrequency: 0.4,
         waveAmplitude: 1.0,
         waveSoftness: 0.35,
         frequencyThickness: 1.0,

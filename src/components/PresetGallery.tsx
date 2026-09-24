@@ -14,7 +14,6 @@ const CATEGORIES: { id: PresetCategory | 'ALL'; label: string }[] = [
   { id: 'ALL', label: 'ALL' },
   { id: 'News', label: 'NEWS' },
   { id: 'Technology', label: 'TECH' },
-  { id: 'Finance', label: 'FINANCE' },
   { id: 'Automotive', label: 'AUTO' },
   { id: 'Entertainment', label: 'ENTERTAINMENT' },
   { id: 'Sports', label: 'SPORTS' },

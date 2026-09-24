@@ -951,16 +951,41 @@ function buildTypographyBoxItems(
   const radiusMin = Math.min(cfg.cornerRadiusMin, cfg.cornerRadiusMax);
   const radiusMax = Math.max(cfg.cornerRadiusMin, cfg.cornerRadiusMax);
 
+  // Centered packing: the source sketch's grid always anchored to (0,0) — top-left — which is fine
+  // for a canvas-filling p5.js sketch, but here it means the box field's own "center of mass" isn't
+  // fixed to the canvas center: as box size changes (font size, padding, box height...), the ragged
+  // right/bottom edge shifts, making it LOOK like the whole field drifts sideways instead of zooming
+  // in/out from the middle. Fixed by a two-pass layout per row: pass 1 walks the SAME word-selection
+  // random sequence as before to find which words fit and their total content width; pass 2 places
+  // those same words starting from a centered x offset, continuing the SAME random sequence for
+  // color/filled/corner-radius draws so the layout stays exactly as deterministic/reproducible as
+  // before. The whole grid is likewise vertically centered.
+  const rowHeight = cfg.boxHeight + cfg.marginY;
+  let rowCount = 0;
+  for (let yTest = 0; yTest + cfg.boxHeight < height; yTest += rowHeight) rowCount++;
+  const gridContentHeight = rowCount > 0 ? rowCount * cfg.boxHeight + (rowCount - 1) * cfg.marginY : 0;
+  const yOffset = Math.max(0, (height - gridContentHeight) / 2);
+
   const items: TypoBoxItem[] = [];
-  let y = 0;
-  while (y + cfg.boxHeight < height) {
-    let x = 0;
-    while (x < width) {
+  let y = yOffset;
+  for (let row = 0; row < rowCount; row++) {
+    const rowWords: { word: string; wordWidth: number }[] = [];
+    let xTest = 0;
+    while (xTest < width) {
       const word = words[Math.floor(rand() * words.length)] ?? words[0];
       const wordWidth = ctx.measureText(word.toUpperCase()).width + cfg.horizontalPadding;
+      if (xTest + wordWidth > width) break;
+      rowWords.push({ word, wordWidth });
+      xTest += wordWidth + cfg.marginX;
+    }
 
-      if (x + wordWidth > width) break;
+    const rowContentWidth =
+      rowWords.length > 0
+        ? rowWords.reduce((sum, w) => sum + w.wordWidth, 0) + (rowWords.length - 1) * cfg.marginX
+        : 0;
+    let x = Math.max(0, (width - rowContentWidth) / 2);
 
+    for (const { word, wordWidth } of rowWords) {
       // Wrapping shape: either one uniform radius for every box (original behavior), or each box
       // gets its own radius drawn from [min, max] and cached (never re-rolled per frame) — a low min
       // (0 by default) means some boxes land as plain sharp rectangles right alongside rounded ones.
@@ -980,7 +1005,8 @@ function buildTypographyBoxItems(
 
       x += wordWidth + cfg.marginX;
     }
-    y += cfg.boxHeight + cfg.marginY;
+
+    y += rowHeight;
   }
 
   cachedTypoBoxKey = key;

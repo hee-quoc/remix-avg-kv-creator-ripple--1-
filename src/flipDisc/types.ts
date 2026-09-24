@@ -15,7 +15,7 @@
 
 import { ObjectShapeType } from '../types';
 
-export type FlipDiscShape = 'clover' | 'circle' | 'square';
+export type FlipDiscShape = 'clover' | 'circle' | 'square' | 'custom';
 export type FlipDiscMaterial = 'matte' | 'glossy' | 'iridescent' | 'metallic';
 export type FlipDiscMaskMode = 'none' | 'shape' | 'svg';
 
@@ -60,6 +60,15 @@ export interface FlipDiscConfig {
   maskSvgDataUrl?: string; // used when maskMode === 'svg' — data URL loaded into an <img> to rasterize
   maskSvgName?: string;
   maskScale: number; // 0.3 - 2.5, uniform zoom of the mask silhouette within the disc field
+
+  // Custom Tile Shape — used when shape === 'custom'. An uploaded SVG's outline is sampled into a
+  // closed polygon (see flipDiscCustomShape.ts), normalized to the same unit-circle convention the
+  // built-in circle/square/clover perimeters use, and fed straight into the SAME mesh builder
+  // (flipDiscGL.ts's makePerimeter/rebuildMeshIfNeeded) — every disc in the field becomes that shape,
+  // still flipping/shading/lighting exactly like circle/square/clover. No second render path.
+  customShapePoints?: [number, number][];
+  customShapeName?: string;
+  customShapeVersion: number; // bumped on every upload so the WebGL mesh cache knows to rebuild
 }
 
 export const DEFAULT_FLIP_DISC_CONFIG: FlipDiscConfig = {
@@ -84,7 +93,8 @@ export const DEFAULT_FLIP_DISC_CONFIG: FlipDiscConfig = {
   waveTiming: 1.0,
   maskMode: 'none',
   maskShapeType: 'circle',
-  maskScale: 1.0
+  maskScale: 1.0,
+  customShapeVersion: 0
 };
 
 export interface FlipDiscPreset {

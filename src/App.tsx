@@ -4,6 +4,7 @@ import { applyPresetToState, BASE_DEFAULT_STATE } from './data/presets';
 import { KineticCanvas } from './components/KineticCanvas';
 import { HeaderBar } from './components/HeaderBar';
 import { ControlsDrawer } from './components/ControlsDrawer';
+import { useSettingsHistory } from './hooks/useSettingsHistory';
 import { FlipDiscConfig } from './flipDisc/types';
 import { applyFlipDiscPreset } from './flipDisc/presets';
 import { FlipDiscCanvas, FlipDiscImageActions } from './flipDisc/FlipDiscCanvas';
@@ -18,6 +19,7 @@ export default function App() {
   // activeVisualStyle, and the wave-variation fields — which risked inconsistent behavior on first
   // load before any preset is picked).
   const [state, setState] = useState<RenderState>(() => JSON.parse(JSON.stringify(BASE_DEFAULT_STATE)));
+  const { history, clearHistory, removeEntry } = useSettingsHistory(state);
   const [isControlsOpen, setIsControlsOpen] = useState(true);
   const [fps, setFps] = useState(60);
   const [dotCount, setDotCount] = useState(12000);
@@ -42,6 +44,10 @@ export default function App() {
     },
     []
   );
+
+  const handleRestoreHistory = useCallback((snapshot: RenderState) => {
+    setState(JSON.parse(JSON.stringify(snapshot)));
+  }, []);
 
   const handleSelectPreset = useCallback((presetId: string) => {
     setEngineMode('kinetic');
@@ -143,6 +149,10 @@ export default function App() {
           onClose={() => setIsControlsOpen(false)}
           onSelectPreset={handleSelectPreset}
           onSelectFlipDiscPreset={handleSelectFlipDiscPreset}
+          history={history}
+          onRestoreHistory={handleRestoreHistory}
+          onClearHistory={clearHistory}
+          onRemoveHistoryEntry={removeEntry}
         />
       </div>
     </div>

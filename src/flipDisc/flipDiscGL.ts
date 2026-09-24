@@ -11,7 +11,7 @@ import { SDFData, sampleSDF } from '../utils/sdf';
 // their defaults exactly reproduce the reference's fixed numbers.
 // ============================================================
 
-const SHAPE_SEGMENTS: Record<FlipDiscConfig['shape'], number> = { circle: 28, square: 4, clover: 48 };
+const SHAPE_SEGMENTS: Record<FlipDiscConfig['shape'], number> = { circle: 28, square: 4, clover: 48, custom: 48 };
 const MATERIAL_INDEX: Record<FlipDiscConfig['material'], number> = { matte: 0, glossy: 1, metallic: 2, iridescent: 3 };
 const FLIP_SECONDS_BASE = 5.0; // reference's FLIP_SECONDS at flipSpeed = 1.0
 const ART_SIZE = 0.9; // reference's ART_SIZE (overall on-screen zoom, not user-exposed in the reference panel either)
@@ -196,7 +196,10 @@ function compileShader(gl: WebGLRenderingContext, isWebGL2: boolean, type: numbe
   return shader;
 }
 
-function makePerimeter(shape: FlipDiscConfig['shape']): [number, number][] {
+function makePerimeter(shape: FlipDiscConfig['shape'], customPoints?: [number, number][]): [number, number][] {
+  if (shape === 'custom') {
+    return customPoints && customPoints.length >= 3 ? customPoints : makePerimeter('circle');
+  }
   const N = SHAPE_SEGMENTS[shape];
   const points: [number, number][] = [];
   for (let i = 0; i < N; i++) {
@@ -321,15 +324,17 @@ export class FlipDiscGLRenderer {
     shape: FlipDiscConfig['shape'],
     density: number,
     mask: SDFData | null,
-    maskKey: string
+    maskKey: string,
+    customPoints: [number, number][] | undefined,
+    customVersion: number
   ): void {
     const count = Math.max(4, Math.round(density));
-    const key = `${shape}_${count}_${maskKey}`;
+    const key = `${shape}_${count}_${maskKey}_${shape === 'custom' ? customVersion : ''}`;
     if (key === this.lastMeshKey) return;
     this.lastMeshKey = key;
 
     const gl = this.gl;
-    const perimeter = makePerimeter(shape);
+    const perimeter = makePerimeter(shape, customPoints);
     const N = perimeter.length;
     const data: number[] = [];
     const half = (count - 1) * 0.5;
@@ -397,7 +402,7 @@ export class FlipDiscGLRenderer {
     maskKey = 'none'
   ): void {
     const gl = this.gl;
-    this.rebuildMeshIfNeeded(config.shape, config.density, mask, maskKey);
+    this.rebuildMeshIfNeeded(config.shape, config.density, mask, maskKey, config.customShapePoints, config.customShapeVersion);
 
     const period = FLIP_SECONDS_BASE / Math.max(0.05, config.flipSpeed);
     const phase = ((time % period) / period) * Math.PI * 2;

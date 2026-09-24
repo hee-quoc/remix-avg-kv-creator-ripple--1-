@@ -13,7 +13,6 @@ export type DotShape =
   | 'tile'
   | 'stitch'
   | 'woven'
-  | 'magnetic_needle'
   | 'modular_strip'
   | 'original_stitch'
   | 'typography_box'
@@ -99,7 +98,7 @@ export type MaskMode = 'text' | 'shape' | 'svg_mask';
 export type ObjectShapeType = 'circle' | 'square' | 'ring' | 'star' | 'heart' | 'hexagon' | 'diamond' | 'shield';
 
 export type CompositionMode = 'full_molecule' | 'molecule_wave_only' | 'editorial_collage' | 'modular_signal_field' | 'typography_ripple';
-export type PresetCategory = 'News' | 'Technology' | 'Finance' | 'Automotive' | 'Entertainment' | 'Sports' | 'Culture' | 'Children';
+export type PresetCategory = 'News' | 'Technology' | 'Automotive' | 'Entertainment' | 'Sports' | 'Culture' | 'Children';
 
 export type VisualStyleId =
   | 'modular_pixel'
@@ -184,11 +183,6 @@ export interface GridConfig {
   stitchAngle?: number; // -90 to +90 deg
   stitchSoftness?: number; // 0.0 to 1.0 (thread fiber feel)
   stitchTensionAnim?: boolean; // dynamic thread tension animation
-  // Automotive Magnetic Needle Field parameters
-  magneticScale?: number; // 1 to 4
-  magneticGridN?: number; // default 60
-  magneticLineLength?: number; // default 20
-  magneticWeight?: number; // default 4
   // Modular Signal Field (Breaking Signal redesign) parameters — used when dotShape === 'modular_strip'
   modularStrip?: ModularStripConfig;
   // Typography Radial Ripple (Breaking Signal redesign #2) — used when compositionMode === 'typography_ripple'

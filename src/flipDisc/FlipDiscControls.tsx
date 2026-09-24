@@ -1,7 +1,8 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { FlipDiscConfig, FlipDiscShape, FlipDiscMaterial } from './types';
 import { ObjectShapeType } from '../types';
 import { FlipDiscImageActions } from './FlipDiscCanvas';
+import { parseCustomShapeSvg } from './flipDiscCustomShape';
 import { Sparkles, Palette, Layers, Wand2, Image as ImageIcon, X, Shapes, Upload } from 'lucide-react';
 
 interface FlipDiscControlsProps {
@@ -15,7 +16,8 @@ interface FlipDiscControlsProps {
 const SHAPES: { id: FlipDiscShape; label: string }[] = [
   { id: 'circle', label: 'CIRCLE' },
   { id: 'clover', label: 'CLOVER' },
-  { id: 'square', label: 'SQUARE' }
+  { id: 'square', label: 'SQUARE' },
+  { id: 'custom', label: 'CUSTOM' }
 ];
 
 const MATERIALS: { id: FlipDiscMaterial; label: string; desc: string }[] = [
@@ -57,6 +59,28 @@ export const FlipDiscControls: React.FC<FlipDiscControlsProps> = ({
 }) => {
   const frontFileRef = useRef<HTMLInputElement>(null);
   const backFileRef = useRef<HTMLInputElement>(null);
+  const [customShapeError, setCustomShapeError] = useState<string | null>(null);
+
+  const handleCustomShapeFile = (file: File) => {
+    setCustomShapeError(null);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const xml = event.target?.result as string;
+      const points = parseCustomShapeSvg(xml);
+      if (!points) {
+        setCustomShapeError('Could not read a shape from this SVG — it needs one closed path, circle, rect, ellipse, or polygon.');
+        return;
+      }
+      onUpdate({
+        shape: 'custom',
+        customShapePoints: points,
+        customShapeName: file.name,
+        customShapeVersion: (config.customShapeVersion || 0) + 1
+      });
+    };
+    reader.onerror = () => setCustomShapeError('Could not read this file.');
+    reader.readAsText(file);
+  };
 
   const slider = (
     label: string,
@@ -157,12 +181,15 @@ export const FlipDiscControls: React.FC<FlipDiscControlsProps> = ({
         <span className="text-[11px] font-bold uppercase text-pink-400 flex items-center gap-1.5">
           <Wand2 className="w-3.5 h-3.5" /> SHAPE
         </span>
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="grid grid-cols-4 gap-1.5">
           {SHAPES.map((s) => (
             <button
               key={s.id}
               type="button"
-              onClick={() => onUpdate({ shape: s.id })}
+              onClick={() => {
+                if (s.id === 'custom' && !config.customShapePoints) return; // prompt upload instead
+                onUpdate({ shape: s.id });
+              }}
               className={`p-1.5 rounded border text-center transition-colors ${
                 config.shape === s.id
                   ? 'bg-pink-500/20 border-pink-500 text-pink-300 font-bold'
@@ -173,6 +200,53 @@ export const FlipDiscControls: React.FC<FlipDiscControlsProps> = ({
             </button>
           ))}
         </div>
+
+        <div className="pt-1 border-t border-[#1a1a1a] space-y-1.5">
+          <span className="text-[9px] text-[#888] uppercase block">
+            CUSTOM TILE SHAPE — UPLOAD SVG
+          </span>
+          {config.customShapeName ? (
+            <div className="p-2 bg-[#141414] border border-[#262626] rounded flex items-center justify-between text-[10px]">
+              <span className="text-pink-300 truncate max-w-[150px]">{config.customShapeName}</span>
+              <button
+                type="button"
+                onClick={() =>
+                  onUpdate({
+                    shape: config.shape === 'custom' ? 'circle' : config.shape,
+                    customShapePoints: undefined,
+                    customShapeName: undefined
+                  })
+                }
+                className="text-rose-400 hover:text-rose-300 text-[9px] uppercase hover:underline ml-2"
+              >
+                CLEAR
+              </button>
+            </div>
+          ) : (
+            <label className="cursor-pointer py-1.5 px-3 bg-[#161616] hover:bg-[#202020] border border-[#333] hover:border-pink-500 rounded text-center text-[10px] text-[#ccc] hover:text-white uppercase transition-colors flex items-center justify-center gap-2">
+              <Upload className="w-3.5 h-3.5 text-pink-400" />
+              <span>UPLOAD SVG SHAPE FILE</span>
+              <input
+                type="file"
+                accept=".svg"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleCustomShapeFile(file);
+                  e.target.value = '';
+                }}
+                className="hidden"
+              />
+            </label>
+          )}
+          {customShapeError && (
+            <p className="text-[9px] text-rose-400 leading-relaxed">{customShapeError}</p>
+          )}
+          <p className="text-[8px] text-[#666] font-sans leading-relaxed">
+            One simple closed SVG shape (a single path, circle, rect, ellipse, or polygon) — its
+            outline becomes every tile's shape, same as CIRCLE/CLOVER/SQUARE above.
+          </p>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           {slider('GRID COUNT', config.density, 'density', 6, 60, 1, '', 0)}
           {slider('DISC RADIUS', config.discRadius, 'discRadius', 0.1, 0.49, 0.01, '', 2)}

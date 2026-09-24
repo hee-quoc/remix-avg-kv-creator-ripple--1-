@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { RenderState, ThemeId, CustomSvgLayer, CustomSvgDistribution } from '../types';
 import { PRESETS } from '../data/presets';
+import { HistoryEntry } from '../utils/historyStore';
 import { DEFAULT_CUSTOM_SVG_LAYERS } from '../utils/particleRenderer';
 import { PresetGallery } from './PresetGallery';
 import { VisualStyleGallery } from './VisualStyleGallery';
@@ -45,7 +46,9 @@ import {
   Link,
   Unlink,
   Layout,
-  Waves
+  Waves,
+  History as HistoryIcon,
+  RotateCw
 } from 'lucide-react';
 
 interface ControlsDrawerProps {
@@ -55,9 +58,13 @@ interface ControlsDrawerProps {
   onClose: () => void;
   onSelectPreset: (presetId: string) => void;
   onSelectFlipDiscPreset?: (presetId: string) => void;
+  history?: HistoryEntry[];
+  onRestoreHistory?: (snapshot: RenderState) => void;
+  onClearHistory?: () => void;
+  onRemoveHistoryEntry?: (id: string) => void;
 }
 
-type TabType = 'presets' | 'styles' | 'composition' | 'typography' | 'grid' | 'wavefront' | 'style';
+type TabType = 'presets' | 'styles' | 'composition' | 'typography' | 'grid' | 'wavefront' | 'style' | 'history';
 
 const FONT_OPTIONS = [
   { name: 'Space Grotesk', category: 'Display Sans' },
@@ -87,7 +94,11 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
   isOpen,
   onClose,
   onSelectPreset,
-  onSelectFlipDiscPreset
+  onSelectFlipDiscPreset,
+  history = [],
+  onRestoreHistory,
+  onClearHistory,
+  onRemoveHistoryEntry
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('typography');
   const [videoDuration, setVideoDuration] = useState(5);
@@ -148,7 +159,7 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
   return (
     <div className="w-80 sm:w-96 bg-[#0D0D0D] border-l border-[#222] h-full flex flex-col z-20 text-[#E0E0E0] shadow-2xl shrink-0 font-mono">
       {/* Drawer Header Tabs */}
-      <div className="grid grid-cols-4 sm:grid-cols-7 border-b border-[#222] bg-[#0A0A0A] p-1 gap-0.5">
+      <div className="grid grid-cols-4 sm:grid-cols-8 border-b border-[#222] bg-[#0A0A0A] p-1 gap-0.5">
         <button
           onClick={() => setActiveTab('presets')}
           className={`py-1.5 px-1 rounded text-[9px] font-mono tracking-wider transition-colors text-center ${
@@ -223,7 +234,7 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
 
         <button
           onClick={() => setActiveTab('style')}
-          className={`py-1.5 px-1 rounded text-[9px] font-mono tracking-wider transition-colors text-center col-span-2 sm:col-span-1 ${
+          className={`py-1.5 px-1 rounded text-[9px] font-mono tracking-wider transition-colors text-center ${
             activeTab === 'style'
               ? 'bg-[#222] text-[#00F0FF] border border-[#00F0FF]/50 font-bold'
               : 'text-[#777] hover:text-[#ccc] hover:bg-[#151515]'
@@ -231,6 +242,18 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
           title="Color Palettes & Visual FX"
         >
           STYLE
+        </button>
+
+        <button
+          onClick={() => setActiveTab('history')}
+          className={`py-1.5 px-1 rounded text-[9px] font-mono tracking-wider transition-colors text-center col-span-2 sm:col-span-1 ${
+            activeTab === 'history'
+              ? 'bg-[#222] text-[#00F0FF] border border-[#00F0FF]/50 font-bold'
+              : 'text-[#777] hover:text-[#ccc] hover:bg-[#151515]'
+          }`}
+          title="Settings History — every settled edit, restorable"
+        >
+          HISTORY
         </button>
       </div>
 
@@ -2257,6 +2280,82 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
           <div className="space-y-4">
             <CompositionModeControls state={state} onUpdateState={onUpdateState} />
             <TextLayoutControls state={state} onUpdateState={onUpdateState} />
+          </div>
+        )}
+
+        {/* ================= TAB: SETTINGS HISTORY ================= */}
+        {activeTab === 'history' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="block text-[#888888] font-mono text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                <HistoryIcon className="w-3.5 h-3.5" /> SETTINGS HISTORY
+              </label>
+              {history.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => onClearHistory?.()}
+                  className="text-[9px] uppercase text-rose-400 hover:text-rose-300 hover:underline"
+                >
+                  Clear All
+                </button>
+              )}
+            </div>
+            <p className="text-[9px] text-[#888] font-sans leading-relaxed">
+              Every combination of settings you land on (after a slider/color/preset change settles)
+              is saved here automatically — so a good look is never lost by overshooting a slider or
+              switching presets. Click RESTORE to jump back to any point. Kept across reloads.
+            </p>
+
+            {history.length === 0 ? (
+              <div className="p-4 bg-[#0A0A0A] border border-[#222] rounded text-center text-[10px] text-[#555]">
+                No history yet — start adjusting anything and it'll show up here.
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {[...history].reverse().map((entry, idx) => (
+                  <div
+                    key={entry.id}
+                    className={`p-2.5 bg-[#0A0A0A] border rounded flex items-center justify-between gap-2 ${
+                      idx === 0 ? 'border-[#00F0FF]/40' : 'border-[#222]'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-[#E0E0E0] font-bold truncate">{entry.label}</span>
+                        {idx === 0 && (
+                          <span className="text-[8px] text-[#00F0FF] uppercase font-bold shrink-0">Latest</span>
+                        )}
+                      </div>
+                      <span className="text-[9px] text-[#666]">
+                        {new Date(entry.timestamp).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit'
+                        })}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => onRestoreHistory?.(entry.state)}
+                        title="Restore this snapshot"
+                        className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-bold uppercase bg-[#00F0FF]/10 text-[#00F0FF] border border-[#00F0FF]/30 hover:bg-[#00F0FF]/20 transition-colors"
+                      >
+                        <RotateCw className="w-3 h-3" /> Restore
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onRemoveHistoryEntry?.(entry.id)}
+                        title="Remove this entry"
+                        className="p-1 rounded text-[#555] hover:text-rose-400"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
