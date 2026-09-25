@@ -917,12 +917,12 @@ export const PRESETS: Preset[] = [
         mode: 'flow',
         pattern: 'circular',
         waveType: 'pulse',
-        waveSpeed: 1.1,
+        waveSpeed: 1.15,
         // Ring period stays comfortably above the (now bigger) dash field's own column pitch, so
         // several concentric rings ("seeds") can be visible across the field at once without
         // aliasing into the patchy/moiré look that a too-high frequency caused before.
-        waveFrequency: 0.4,
-        waveAmplitude: 1.0,
+        waveFrequency: 0.2,
+        waveAmplitude: 0.9,
         waveSoftness: 0.35,
         frequencyThickness: 1.0,
         radialThickness: 0.3,
