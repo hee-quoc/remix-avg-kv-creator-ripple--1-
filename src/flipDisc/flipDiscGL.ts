@@ -232,7 +232,7 @@ export class FlipDiscGLRenderer {
   private lastMeshKey = '';
 
   constructor(canvas: HTMLCanvasElement) {
-    const ctxAttrs: WebGLContextAttributes = { antialias: true, preserveDrawingBuffer: true };
+    const ctxAttrs: WebGLContextAttributes = { antialias: true, preserveDrawingBuffer: true, alpha: true };
     const gl =
       (canvas.getContext('webgl2', ctxAttrs) as WebGLRenderingContext | null) ||
       canvas.getContext('webgl', ctxAttrs);
@@ -399,7 +399,8 @@ export class FlipDiscGLRenderer {
     widthPx: number,
     heightPx: number,
     mask: SDFData | null = null,
-    maskKey = 'none'
+    maskKey = 'none',
+    transparentBg = false
   ): void {
     const gl = this.gl;
     this.rebuildMeshIfNeeded(config.shape, config.density, mask, maskKey, config.customShapePoints, config.customShapeVersion);
@@ -414,7 +415,9 @@ export class FlipDiscGLRenderer {
     gl.disable(gl.BLEND);
     gl.disable(gl.CULL_FACE);
     const bg = rgb01(config.backgroundColor);
-    gl.clearColor(bg[0], bg[1], bg[2], 1);
+    // Blending is off, so each disc's own fragment always writes alpha 1.0 regardless of this — only
+    // the untouched background (cleared here) ends up transparent when this is on.
+    gl.clearColor(bg[0], bg[1], bg[2], transparentBg ? 0 : 1);
     gl.clearDepth(1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.useProgram(this.program);

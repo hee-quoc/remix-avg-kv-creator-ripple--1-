@@ -14,6 +14,7 @@ export interface FlipDiscImageActions {
 interface FlipDiscCanvasProps {
   config: FlipDiscConfig;
   isPlaying: boolean;
+  transparentBg?: boolean;
   onFpsUpdate?: (fps: number, tileCount: number) => void;
   exportRequestRef?: React.MutableRefObject<(() => void) | null>;
   imageActionsRef?: React.MutableRefObject<FlipDiscImageActions | null>;
@@ -29,6 +30,7 @@ interface FlipDiscCanvasProps {
 export const FlipDiscCanvas: React.FC<FlipDiscCanvasProps> = ({
   config,
   isPlaying,
+  transparentBg = false,
   onFpsUpdate,
   exportRequestRef,
   imageActionsRef,
@@ -40,6 +42,7 @@ export const FlipDiscCanvas: React.FC<FlipDiscCanvasProps> = ({
   const configRef = useRef<FlipDiscConfig>(config);
   const maskRef = useRef<SDFData | null>(null);
   const maskKeyRef = useRef<string>('none');
+  const transparentBgRef = useRef<boolean>(transparentBg);
   const timeRef = useRef<number>(0);
   const isPlayingRef = useRef<boolean>(isPlaying);
   const animationFrameRef = useRef<number | null>(null);
@@ -56,6 +59,10 @@ export const FlipDiscCanvas: React.FC<FlipDiscCanvasProps> = ({
   useEffect(() => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
+
+  useEffect(() => {
+    transparentBgRef.current = transparentBg;
+  }, [transparentBg]);
 
   // Rebuild the Clip Mask (built-in shape or uploaded SVG logo) with light debouncing to keep slider
   // scrubbing fluid — mirrors KineticCanvas.tsx's SDF regeneration effect. Cheap for 'none'/'shape'
@@ -158,7 +165,15 @@ export const FlipDiscCanvas: React.FC<FlipDiscCanvasProps> = ({
         timeRef.current += dt;
       }
 
-      renderer.render(configRef.current, timeRef.current, canvas.width, canvas.height, maskRef.current, maskKeyRef.current);
+      renderer.render(
+        configRef.current,
+        timeRef.current,
+        canvas.width,
+        canvas.height,
+        maskRef.current,
+        maskKeyRef.current,
+        transparentBgRef.current
+      );
 
       frameCountRef.current++;
       if (now - fpsTimerRef.current >= 500) {
@@ -195,7 +210,15 @@ export const FlipDiscCanvas: React.FC<FlipDiscCanvasProps> = ({
       offscreen.height = exportH;
       try {
         const exportRenderer = new FlipDiscGLRenderer(offscreen);
-        exportRenderer.render(configRef.current, timeRef.current, exportW, exportH, maskRef.current, maskKeyRef.current);
+        exportRenderer.render(
+          configRef.current,
+          timeRef.current,
+          exportW,
+          exportH,
+          maskRef.current,
+          maskKeyRef.current,
+          transparentBgRef.current
+        );
         const dataUrl = offscreen.toDataURL('image/png');
         exportRenderer.dispose();
         const link = document.createElement('a');
@@ -214,7 +237,14 @@ export const FlipDiscCanvas: React.FC<FlipDiscCanvasProps> = ({
   }, [exportRequestRef, canvasSize]);
 
   return (
-    <div ref={containerRef} className="flex-1 relative overflow-hidden bg-black">
+    <div
+      ref={containerRef}
+      className={`flex-1 relative overflow-hidden ${
+        transparentBg
+          ? 'bg-[#0a0a0a] bg-[radial-gradient(#262626_1px,transparent_1px)] [background-size:16px_16px]'
+          : 'bg-black'
+      }`}
+    >
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
       {glError && (
         <div className="absolute inset-0 flex items-center justify-center text-center p-6">

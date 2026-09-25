@@ -37,6 +37,7 @@ export default function App() {
   const flipDiscImageActionsRef = useRef<FlipDiscImageActions | null>(null);
   const [flipDiscFrontImageStatus, setFlipDiscFrontImageStatus] = useState<string>('No image');
   const [flipDiscBackImageStatus, setFlipDiscBackImageStatus] = useState<string>('No image');
+  const [flipDiscTransparentBg, setFlipDiscTransparentBg] = useState(false);
 
   const handleUpdateState = useCallback(
     (updater: (prev: RenderState) => RenderState) => {
@@ -88,6 +89,8 @@ export default function App() {
           isPlaying={flipDiscPlaying}
           fps={flipDiscFps}
           tileCount={flipDiscTileCount}
+          transparentBg={flipDiscTransparentBg}
+          onToggleTransparentBg={() => setFlipDiscTransparentBg((v) => !v)}
           onTogglePlay={() => setFlipDiscPlaying((v) => !v)}
           onSelectPreset={handleSelectFlipDiscPreset}
           onExportPNG={() => flipDiscExportRef.current?.()}
@@ -99,6 +102,7 @@ export default function App() {
           <FlipDiscCanvas
             config={flipDiscConfig}
             isPlaying={flipDiscPlaying}
+            transparentBg={flipDiscTransparentBg}
             onFpsUpdate={handleFlipDiscFpsUpdate}
             exportRequestRef={flipDiscExportRef}
             imageActionsRef={flipDiscImageActionsRef}

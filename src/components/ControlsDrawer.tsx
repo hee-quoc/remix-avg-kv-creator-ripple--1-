@@ -48,7 +48,9 @@ import {
   Layout,
   Waves,
   History as HistoryIcon,
-  RotateCw
+  RotateCw,
+  Copy,
+  Check
 } from 'lucide-react';
 
 interface ControlsDrawerProps {
@@ -104,6 +106,36 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
   const [videoDuration, setVideoDuration] = useState(5);
   const [customFonts, setCustomFonts] = useState<{ name: string; category: string }[]>([]);
   const [maskLinkAspect, setMaskLinkAspect] = useState(true);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Copies a settings snapshot as JSON so it can be pasted elsewhere (e.g. to hand exact current
+  // values to someone who can't see this browser tab) — falls back to a hidden textarea + execCommand
+  // for contexts where navigator.clipboard is unavailable (older browsers, non-HTTPS).
+  const copyStateJson = async (id: string, snapshot: RenderState) => {
+    const text = JSON.stringify(snapshot, null, 2);
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        throw new Error('clipboard API unavailable');
+      }
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+      } catch {
+        // Nothing more we can do — the user can still select the button's title text manually.
+      }
+      document.body.removeChild(textarea);
+    }
+    setCopiedId(id);
+    window.setTimeout(() => setCopiedId((cur) => (cur === id ? null : cur)), 1500);
+  };
 
   const handleFontFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -2306,6 +2338,26 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
               switching presets. Click RESTORE to jump back to any point. Kept across reloads.
             </p>
 
+            <button
+              type="button"
+              onClick={() => copyStateJson('__current__', state)}
+              className="w-full flex items-center justify-center gap-1.5 px-2 py-2 rounded text-[10px] font-bold uppercase bg-[#141414] border border-[#333] text-[#ccc] hover:text-white hover:border-[#00F0FF] transition-colors"
+            >
+              {copiedId === '__current__' ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-400" /> Copied — paste it anywhere
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" /> Copy Current Settings (JSON)
+                </>
+              )}
+            </button>
+            <p className="text-[8px] text-[#666] font-sans leading-relaxed -mt-1.5">
+              Anyone else (including an AI assistant that can't see this tab) can paste that JSON back
+              to reproduce these exact settings.
+            </p>
+
             {history.length === 0 ? (
               <div className="p-4 bg-[#0A0A0A] border border-[#222] rounded text-center text-[10px] text-[#555]">
                 No history yet — start adjusting anything and it'll show up here.
@@ -2342,6 +2394,18 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
                         className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-bold uppercase bg-[#00F0FF]/10 text-[#00F0FF] border border-[#00F0FF]/30 hover:bg-[#00F0FF]/20 transition-colors"
                       >
                         <RotateCw className="w-3 h-3" /> Restore
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => copyStateJson(entry.id, entry.state)}
+                        title="Copy this snapshot as JSON"
+                        className="p-1 rounded text-[#555] hover:text-[#00F0FF]"
+                      >
+                        {copiedId === entry.id ? (
+                          <Check className="w-3 h-3 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-3 h-3" />
+                        )}
                       </button>
                       <button
                         type="button"

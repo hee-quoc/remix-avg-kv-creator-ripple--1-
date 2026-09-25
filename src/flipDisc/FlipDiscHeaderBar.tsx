@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Sparkles, Play, Pause, Download, Sliders } from 'lucide-react';
+import { ArrowLeft, Sparkles, Play, Pause, Download, Sliders, Square } from 'lucide-react';
 import { FLIP_DISC_PRESETS } from './presets';
 
 interface FlipDiscHeaderBarProps {
@@ -7,6 +7,8 @@ interface FlipDiscHeaderBarProps {
   isPlaying: boolean;
   fps: number;
   tileCount: number;
+  transparentBg: boolean;
+  onToggleTransparentBg: () => void;
   onTogglePlay: () => void;
   onSelectPreset: (id: string) => void;
   onExportPNG: () => void;
@@ -20,6 +22,8 @@ export const FlipDiscHeaderBar: React.FC<FlipDiscHeaderBarProps> = ({
   isPlaying,
   fps,
   tileCount,
+  transparentBg,
+  onToggleTransparentBg,
   onTogglePlay,
   onSelectPreset,
   onExportPNG,
@@ -68,6 +72,18 @@ export const FlipDiscHeaderBar: React.FC<FlipDiscHeaderBarProps> = ({
       </div>
 
       <div className="flex items-center space-x-2">
+        <button
+          onClick={onToggleTransparentBg}
+          className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md border text-xs font-mono transition-colors ${
+            transparentBg
+              ? 'bg-pink-500/20 border-pink-500/60 text-pink-300'
+              : 'bg-slate-800/80 hover:bg-slate-700 border-slate-700 text-slate-200'
+          }`}
+          title="Toggle transparent background (preview + PNG export)"
+        >
+          <Square className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">{transparentBg ? 'ALPHA BG: ON' : 'TRANSPARENT'}</span>
+        </button>
         <button
           onClick={onTogglePlay}
           className="p-1.5 rounded-md bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-slate-200 transition-colors"
