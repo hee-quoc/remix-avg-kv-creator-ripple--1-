@@ -65,6 +65,8 @@ export interface FlipDiscConfig {
   maskSvgDataUrl?: string; // used when maskMode === 'svg' — data URL loaded into an <img> to rasterize
   maskSvgName?: string;
   maskScale: number; // 0.3 - 2.5, uniform zoom of the mask silhouette within the disc field
+  maskOffsetX: number; // -0.5 - 0.5, shifts the mask silhouette horizontally within the disc field
+  maskOffsetY: number; // -0.5 - 0.5, shifts the mask silhouette vertically within the disc field
 
   // Custom Tile Shape — used when shape === 'custom'. An uploaded SVG's outline is sampled into a
   // closed polygon (see flipDiscCustomShape.ts), normalized to the same unit-circle convention the
@@ -100,6 +102,8 @@ export const DEFAULT_FLIP_DISC_CONFIG: FlipDiscConfig = {
   maskMode: 'none',
   maskShapeType: 'circle',
   maskScale: 1.0,
+  maskOffsetX: 0,
+  maskOffsetY: 0,
   customShapeVersion: 0
 };
 

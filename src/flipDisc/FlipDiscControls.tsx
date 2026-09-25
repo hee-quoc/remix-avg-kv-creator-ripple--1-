@@ -472,8 +472,12 @@ export const FlipDiscControls: React.FC<FlipDiscControlsProps> = ({
         )}
 
         {config.maskMode !== 'none' && (
-          <div className="pt-1 border-t border-[#1a1a1a]">
+          <div className="pt-1 border-t border-[#1a1a1a] space-y-2.5">
             {slider('MASK SCALE', config.maskScale, 'maskScale', 0.3, 2.5, 0.02, 'x', 2)}
+            <div className="grid grid-cols-2 gap-3">
+              {slider('POSITION X', config.maskOffsetX, 'maskOffsetX', -0.5, 0.5, 0.01, '', 2)}
+              {slider('POSITION Y', config.maskOffsetY, 'maskOffsetY', -0.5, 0.5, 0.01, '', 2)}
+            </div>
           </div>
         )}
       </div>

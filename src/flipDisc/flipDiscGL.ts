@@ -327,10 +327,12 @@ export class FlipDiscGLRenderer {
     maskKey: string,
     customPoints: [number, number][] | undefined,
     customVersion: number,
-    radialSizeAmount: number
+    radialSizeAmount: number,
+    maskOffsetX: number,
+    maskOffsetY: number
   ): void {
     const count = Math.max(4, Math.round(density));
-    const key = `${shape}_${count}_${maskKey}_${shape === 'custom' ? customVersion : ''}_${radialSizeAmount}`;
+    const key = `${shape}_${count}_${maskKey}_${shape === 'custom' ? customVersion : ''}_${radialSizeAmount}_${maskOffsetX}_${maskOffsetY}`;
     if (key === this.lastMeshKey) return;
     this.lastMeshKey = key;
 
@@ -360,8 +362,10 @@ export class FlipDiscGLRenderer {
         if (mask) {
           // Same normalized-0..1, y-up convention the mask SDF is authored in (see resolveFlipDiscMask
           // / generateTextSDF/generateImageSDF) — positive distance = inside the shape/logo silhouette.
-          const u = 0.5 + cx / (2 * half);
-          const v = 0.5 - cy / (2 * half);
+          // maskOffsetX/Y shift the mask's apparent position without regenerating the SDF texture: to
+          // move the silhouette right/up on screen, sample the (unmoved) texture from further left/down.
+          const u = 0.5 + cx / (2 * half) - maskOffsetX;
+          const v = 0.5 - cy / (2 * half) + maskOffsetY;
           if (sampleSDF(mask, u, v) <= 0) continue;
         }
 
@@ -423,7 +427,9 @@ export class FlipDiscGLRenderer {
       maskKey,
       config.customShapePoints,
       config.customShapeVersion,
-      config.radialSizeAmount
+      config.radialSizeAmount,
+      config.maskOffsetX,
+      config.maskOffsetY
     );
 
     const period = FLIP_SECONDS_BASE / Math.max(0.05, config.flipSpeed);
