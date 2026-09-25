@@ -326,10 +326,11 @@ export class FlipDiscGLRenderer {
     mask: SDFData | null,
     maskKey: string,
     customPoints: [number, number][] | undefined,
-    customVersion: number
+    customVersion: number,
+    radialSizeAmount: number
   ): void {
     const count = Math.max(4, Math.round(density));
-    const key = `${shape}_${count}_${maskKey}_${shape === 'custom' ? customVersion : ''}`;
+    const key = `${shape}_${count}_${maskKey}_${shape === 'custom' ? customVersion : ''}_${radialSizeAmount}`;
     if (key === this.lastMeshKey) return;
     this.lastMeshKey = key;
 
@@ -354,7 +355,8 @@ export class FlipDiscGLRenderer {
       for (let col = 0; col < count; col++) {
         const cx = col - half;
         const cy = row - half;
-        if (Math.hypot(cx, cy) > fieldRadius) continue;
+        const distFromCenter = Math.hypot(cx, cy);
+        if (distFromCenter > fieldRadius) continue;
         if (mask) {
           // Same normalized-0..1, y-up convention the mask SDF is authored in (see resolveFlipDiscMask
           // / generateTextSDF/generateImageSDF) — positive distance = inside the shape/logo silhouette.
@@ -362,28 +364,39 @@ export class FlipDiscGLRenderer {
           const v = 0.5 - cy / (2 * half);
           if (sampleSDF(mask, u, v) <= 0) continue;
         }
+
+        // Radial Size (the "pixelate" gradient): baked directly into this tile's own unit-shape
+        // vertices at build time (before uRadius/uThickness scale it further in the vertex shader) —
+        // a pure per-tile geometry scale, so it works identically for every shape (circle/square/
+        // clover/custom) and needs zero shader changes. distNorm 0 = mesh center, 1 = field edge.
+        // +radialSizeAmount => big at center tapering to nothing at the edge; -radialSizeAmount reverses it.
+        const distNorm = fieldRadius > 0 ? Math.min(1, distFromCenter / fieldRadius) : 0;
+        const sizeMul = Math.max(0.02, Math.min(2.5, 1 + radialSizeAmount * (1 - 2 * distNorm)));
+
         for (let i = 0; i < N; i++) {
           const p = perimeter[i];
           const q = perimeter[(i + 1) % N];
+          const sp: [number, number] = [p[0] * sizeMul, p[1] * sizeMul];
+          const sq: [number, number] = [q[0] * sizeMul, q[1] * sizeMul];
           frontVertex(0, 0, cx, cy);
-          frontVertex(p[0], p[1], cx, cy);
-          frontVertex(q[0], q[1], cx, cy);
+          frontVertex(sp[0], sp[1], cx, cy);
+          frontVertex(sq[0], sq[1], cx, cy);
           backVertex(0, 0, cx, cy);
-          backVertex(q[0], q[1], cx, cy);
-          backVertex(p[0], p[1], cx, cy);
-          const dx = q[0] - p[0];
-          const dy = q[1] - p[1];
+          backVertex(sq[0], sq[1], cx, cy);
+          backVertex(sp[0], sp[1], cx, cy);
+          const dx = sq[0] - sp[0];
+          const dy = sq[1] - sp[1];
           const len = Math.hypot(dx, dy) || 1;
           const nx = dy / len;
           const ny = -dx / len;
           const side = (point: [number, number], z: number) =>
             push(point[0], point[1], z, cx, cy, nx, ny, 0, i / N, (z + 1) * 0.5, 0);
-          side(p, 1);
-          side(p, -1);
-          side(q, 1);
-          side(q, 1);
-          side(p, -1);
-          side(q, -1);
+          side(sp, 1);
+          side(sp, -1);
+          side(sq, 1);
+          side(sq, 1);
+          side(sp, -1);
+          side(sq, -1);
         }
       }
     }
@@ -403,7 +416,15 @@ export class FlipDiscGLRenderer {
     transparentBg = false
   ): void {
     const gl = this.gl;
-    this.rebuildMeshIfNeeded(config.shape, config.density, mask, maskKey, config.customShapePoints, config.customShapeVersion);
+    this.rebuildMeshIfNeeded(
+      config.shape,
+      config.density,
+      mask,
+      maskKey,
+      config.customShapePoints,
+      config.customShapeVersion,
+      config.radialSizeAmount
+    );
 
     const period = FLIP_SECONDS_BASE / Math.max(0.05, config.flipSpeed);
     const phase = ((time % period) / period) * Math.PI * 2;

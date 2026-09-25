@@ -25,6 +25,11 @@ export interface FlipDiscConfig {
   density: number; // grid resolution (discs across the field), reference default 40
   discRadius: number; // 0.1 - 0.49, disc radius as a fraction of grid spacing
   thickness: number; // 0.01 - 0.32, disc depth (visible on the side walls / edge-on view)
+  // Radial Size ("pixelate" gradient) — baked per-tile into the mesh geometry itself (see
+  // rebuildMeshIfNeeded in flipDiscGL.ts), zero shader changes. -1..1: 0 = every disc the same size
+  // (discRadius, as before). Positive = big at the mesh's own center tapering to nothing at the edge.
+  // Negative = reversed — small at center, growing toward the edge.
+  radialSizeAmount: number;
 
   // Colors
   frontColor: string;
@@ -76,6 +81,7 @@ export const DEFAULT_FLIP_DISC_CONFIG: FlipDiscConfig = {
   density: 40,
   discRadius: 0.43,
   thickness: 0.11,
+  radialSizeAmount: 0,
   frontColor: '#0B9EB8',
   backColor: '#D43D11',
   sideColor: '#34314D',

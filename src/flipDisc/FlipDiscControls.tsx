@@ -252,6 +252,14 @@ export const FlipDiscControls: React.FC<FlipDiscControlsProps> = ({
           {slider('DISC RADIUS', config.discRadius, 'discRadius', 0.1, 0.49, 0.01, '', 2)}
         </div>
         {slider('THICKNESS', config.thickness, 'thickness', 0.01, 0.32, 0.01, '', 2)}
+
+        <div className="pt-1 border-t border-[#1a1a1a] space-y-1">
+          {slider('RADIAL SIZE (PIXELATE)', config.radialSizeAmount, 'radialSizeAmount', -1, 1, 0.02, '', 2)}
+          <p className="text-[8px] text-[#666] font-sans leading-relaxed">
+            0 = every disc the same size. Positive: big at the center, shrinking to nothing at the
+            edge. Negative: reversed — small at the center, growing toward the edge.
+          </p>
+        </div>
       </div>
 
       {/* Color */}
