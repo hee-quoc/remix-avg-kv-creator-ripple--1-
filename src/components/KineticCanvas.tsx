@@ -7,6 +7,8 @@ import {
   renderParticlesToCanvas,
   renderConstellationLinesToCanvas,
   renderOriginalTypographyToCanvas,
+  renderLedBackdropToCanvas,
+  resetTypographyBoxCache,
   snapshotParticles,
   Particle,
   DESIGN_WIDTH,
@@ -191,6 +193,26 @@ export const KineticCanvas: React.FC<KineticCanvasProps> = ({
     state.font.maskScaleX,
     state.font.maskScaleY
   ]);
+
+  // 2b. Typography Box Material's own word font — a SEPARATE font from the headline above, and one
+  // ctx.measureText() (in buildTypographyBoxItems) silently mismeasures if it isn't loaded yet, since
+  // canvas text measurement doesn't wait for @font-face the way DOM text does. That cached-too-early
+  // layout would otherwise stay wrong forever (the grid never rebuilds on its own once cached), so
+  // explicitly load the font and force a rebuild once it's actually ready.
+  useEffect(() => {
+    const box = state.grid.typographyBox;
+    if (state.grid.dotShape !== 'typography_box' || !box?.fontFamily) return;
+    let active = true;
+    document.fonts
+      .load(`bold ${box.fontSize}px "${box.fontFamily}"`)
+      .catch((e) => console.warn('Typography Box font load warning:', e))
+      .then(() => {
+        if (active) resetTypographyBoxCache();
+      });
+    return () => {
+      active = false;
+    };
+  }, [state.grid.dotShape, state.grid.typographyBox?.fontFamily, state.grid.typographyBox?.fontSize]);
 
   // 3. Handle Canvas Resize with strict 16:9 aspect ratio and adaptive quality
   const updateCanvasSize = useCallback(() => {
@@ -380,6 +402,10 @@ export const KineticCanvas: React.FC<KineticCanvasProps> = ({
           currentState.style.constellationLineColor || '#00f0ff'
         );
       }
+
+      // LED Backdrop (Typography Box Material only) — its own direct-canvas layer, painted BEHIND
+      // the particles/text (see renderLedBackdropToCanvas for why it can't be a Particle[] entry).
+      renderLedBackdropToCanvas(ctx, currentState.grid, DESIGN_WIDTH, DESIGN_HEIGHT);
 
       // High-performance batched particle rendering
       renderParticlesToCanvas(ctx, particles);
@@ -675,6 +701,7 @@ export const KineticCanvas: React.FC<KineticCanvasProps> = ({
       );
     }
 
+    renderLedBackdropToCanvas(ctx, state.grid, DESIGN_WIDTH, DESIGN_HEIGHT);
     renderParticlesToCanvas(ctx, fullQualityParticles);
     if (!isModularSignalFieldExport) {
       renderKVLayoutToCanvas(ctx, state.kvLayout, DESIGN_WIDTH, DESIGN_HEIGHT);

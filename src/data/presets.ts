@@ -715,13 +715,19 @@ export const PRESETS: Preset[] = [
           filledRatio: 0.5,
           strokeColor: '#000000',
           textColor: '#000000',
+          textColorMode: 'fixed',
           strokeWidth: 3,
           baseOpacity: 0.0,
           minOpacity: 0.0,
           maxOpacity: 1.0,
           opacityInfluence: 0.92,
           opacitySoftness: 0.5,
-          invertOpacity: false
+          invertOpacity: false,
+          ledBackdrop: false,
+          ledBackdropColor: '#0b3d24',
+          ledBackdropOpacity: 0.5,
+          ledBackdropSpacing: 16,
+          ledBackdropDotSize: 1.6
         }
       },
       wave: {
@@ -954,6 +960,123 @@ export const PRESETS: Preset[] = [
         uniformColorBrightness: true,
         showRadarGrid: false,
         radarGridOpacity: 0.18,
+        showEmitterHandle: false
+      }
+    }
+  },
+
+  // 11 — PIXEL TICKER (News) — duplicate of Global Wire's Typography Box Material + ripple
+  // mechanics, reskinned as a glowing LED stock-ticker board per the user's reference image.
+  {
+    id: 'pixel_ticker',
+    name: '11. Pixel Ticker',
+    category: 'News',
+    description: 'A glowing green/cyan LED stock-ticker board — the same word-box grid and ripple engine as Global Wire, reskinned pixel-style.',
+    formulaDescription: 'Packed sharp-cornered typography boxes (existing Typography Box Material, textColorMode "palette") sampled by the shared wave engine — same mechanics as Global Wire, chrome-free glowing text instead of filled pills.',
+    compositionMode: 'full_molecule',
+    defaultVisualStyle: 'dot_matrix',
+    tags: ['News', 'Pixel', 'LED', 'Ticker', 'Ripple'],
+    config: {
+      compositionMode: 'full_molecule',
+      activeVisualStyle: 'dot_matrix',
+      font: {
+        text: 'STOCK\nTICKER',
+        fontFamily: 'Press Start 2P',
+        fontSize: 90,
+        fontWeight: 400,
+        letterSpacing: 2,
+        lineHeight: 1.15,
+        textAlign: 'center',
+        invertText: false
+      },
+      grid: {
+        gridType: 'square',
+        density: 10,
+        minRadius: 1,
+        maxRadius: 5.5,
+        dotShape: 'typography_box',
+        sdfThreshold: 0.5,
+        sdfSoftness: 0.8,
+        hideBackgroundDots: false,
+        // Same material/mechanics as Global Wire (id: global_wire) — only content, geometry, and
+        // color source change: sharp corners, no fill/outline, per-box palette-colored glyphs.
+        typographyBox: {
+          words: [
+            'FG▼132.99', 'GJHL▲59.41', 'KNHF▲55.23', 'ZCFG▼41.20',
+            'WEWR▼67.90', 'LOMP▲12.56', 'QECT▲88.03', 'RTII▼155.78',
+            'XPLR▲23.11', 'VNTK▼77.65', 'HDRO▲9.42', 'BLTZ▼142.30',
+            'OMEGA▲301.05', 'KRXP▼18.77', 'DYNM▲64.20', 'FUSE▼36.84'
+          ],
+          colorPalette: ['#00FF6A', '#00F0FF', '#39FF14', '#00D8A0'],
+          fontFamily: 'Press Start 2P',
+          // Same box geometry/pitch as Global Wire (boxHeight/padding/margins byte-identical) so the
+          // ripple reveal has the exact same grain/rhythm — fontSize is the one necessary exception,
+          // lowered because Press Start 2P's glyphs run far wider/taller per declared px than Arial.
+          fontSize: 20,
+          boxHeight: 58,
+          horizontalPadding: 34,
+          marginX: 20,
+          marginY: 20,
+          cornerRadius: 0,
+          cornerRadiusMode: 'uniform',
+          cornerRadiusMin: 0,
+          cornerRadiusMax: 0,
+          filledRatio: 0,
+          strokeColor: '#000000',
+          textColor: '#00FF6A',
+          textColorMode: 'palette',
+          strokeWidth: 0,
+          // Same hidden-until-the-ripple-hits reveal as Global Wire — text lights up in a clean
+          // circular wave radiating out from center, not a static always-on glow.
+          baseOpacity: 0.0,
+          minOpacity: 0.0,
+          maxOpacity: 1.0,
+          opacityInfluence: 0.92,
+          opacitySoftness: 0.5,
+          invertOpacity: false,
+          // Static "unlit LED pixels" grid behind the ticker text, like a real dot-matrix board.
+          ledBackdrop: true,
+          ledBackdropColor: '#0b3d24',
+          ledBackdropOpacity: 0.55,
+          ledBackdropSpacing: 16,
+          ledBackdropDotSize: 1.6
+        }
+      },
+      // Same in-phase concentric ripple tuning as Global Wire.
+      wave: {
+        mode: 'flow',
+        pattern: 'circular',
+        waveType: 'sine',
+        waveSpeed: 1.6,
+        waveFrequency: 0.2,
+        waveAmplitude: 1.35,
+        waveSoftness: 0.5,
+        frequencyThickness: 1.0,
+        radialThickness: 0.0,
+        originX: 0.5,
+        originY: 0.5,
+        secondaryOriginX: 0.5,
+        secondaryOriginY: 0.5,
+        vectorDistortion: 0.8,
+        frequencyVariation: 0.0,
+        amplitudeVariation: 0.0,
+        sizeRandomness: 0.0,
+        randomSeed: 2024
+      },
+      style: {
+        theme: 'blueprint_cyan',
+        visualStyle: 'dot_matrix',
+        dotColor: '#00FF6A',
+        bgColor: '#000000',
+        accentColor: '#00F0FF',
+        enableColorGradient: false,
+        gradientColor: '#00F0FF',
+        vignette: true,
+        uniformColorBrightness: false,
+        // NOTE: showRadarGrid draws concentric radar RINGS + crosshairs, not a dot-matrix grid — the
+        // actual "unlit LED pixels" backdrop is grid.typographyBox.ledBackdrop above.
+        showRadarGrid: false,
+        radarGridOpacity: 0.12,
         showEmitterHandle: false
       }
     }

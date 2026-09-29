@@ -884,14 +884,71 @@ export const DEFAULT_TYPOGRAPHY_BOX_CONFIG: TypographyBoxConfig = {
   filledRatio: 0.5,
   strokeColor: '#000000',
   textColor: '#000000',
+  textColorMode: 'fixed',
   strokeWidth: 3,
   baseOpacity: 0.12,
   minOpacity: 0.08,
   maxOpacity: 1.0,
   opacityInfluence: 0.9,
   opacitySoftness: 0.45,
-  invertOpacity: false
+  invertOpacity: false,
+  ledBackdrop: false,
+  ledBackdropColor: '#0b3d24',
+  ledBackdropOpacity: 0.5,
+  ledBackdropSpacing: 16,
+  ledBackdropDotSize: 1.6
 };
+
+let cachedLedBackdropKey = '';
+let cachedLedBackdropPoints: { x: number; y: number }[] = [];
+
+/**
+ * A static full-canvas grid of dot positions, cached by spacing/canvas-size only (never rebuilt for
+ * ripple/time) — the "unlit LED pixels" backdrop behind the Typography Box Material's word boxes.
+ */
+function getCachedLedBackdropGrid(spacing: number, width: number, height: number): { x: number; y: number }[] {
+  const step = Math.max(4, spacing);
+  const key = `${step}|${width}|${height}`;
+  if (key === cachedLedBackdropKey && cachedLedBackdropPoints.length > 0) return cachedLedBackdropPoints;
+
+  const points: { x: number; y: number }[] = [];
+  for (let y = step / 2; y < height; y += step) {
+    for (let x = step / 2; x < width; x += step) {
+      points.push({ x, y });
+    }
+  }
+  cachedLedBackdropKey = key;
+  cachedLedBackdropPoints = points;
+  return points;
+}
+
+/**
+ * Draws the Typography Box Material's LED Backdrop — a static "unlit LED pixels" dot grid — as its
+ * own direct Canvas2D layer, deliberately NOT part of the Particle[] array (see the comment in
+ * computeTypographyBoxParticles for why mixing shapes into that array is unsafe). Call this BEFORE
+ * renderParticlesToCanvas so the backdrop paints behind the word boxes.
+ */
+export function renderLedBackdropToCanvas(
+  ctx: CanvasRenderingContext2D,
+  grid: GridConfig,
+  width: number,
+  height: number
+): void {
+  if (grid.dotShape !== 'typography_box') return;
+  const cfg: TypographyBoxConfig = { ...DEFAULT_TYPOGRAPHY_BOX_CONFIG, ...(grid.typographyBox || {}) };
+  if (!cfg.ledBackdrop) return;
+
+  const dots = getCachedLedBackdropGrid(cfg.ledBackdropSpacing, width, height);
+  ctx.save();
+  ctx.globalAlpha = cfg.ledBackdropOpacity;
+  ctx.fillStyle = cfg.ledBackdropColor;
+  for (const dot of dots) {
+    ctx.beginPath();
+    ctx.arc(dot.x, dot.y, cfg.ledBackdropDotSize, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
 
 interface TypoBoxItem {
   x: number;
@@ -917,6 +974,18 @@ function getTypoBoxMeasureCtx(): CanvasRenderingContext2D {
 
 let cachedTypoBoxKey = '';
 let cachedTypoBoxItems: TypoBoxItem[] = [];
+
+/**
+ * Forces the next buildTypographyBoxItems call to rebuild instead of reusing the cache — needed after
+ * a web font finishes loading asynchronously. ctx.measureText() silently falls back to a substitute
+ * font if the real one isn't loaded yet, so a box grid built too early gets each word's width wrong;
+ * since the grid is otherwise cached (by design — task: don't rebuild on every ripple frame), that
+ * wrong layout would stick around forever without an explicit invalidation once the real font is
+ * actually ready (see the document.fonts.load() effect in KineticCanvas.tsx).
+ */
+export function resetTypographyBoxCache(): void {
+  cachedTypoBoxKey = '';
+}
 
 /**
  * Ports the source sketch's setup() grid-packing loop verbatim (same while/while structure, same
@@ -1063,7 +1132,14 @@ export function computeTypographyBoxParticles(
   // displacing a box.
   const ampFactor = Math.max(0, Math.min(1.5, waveFrameCtx.baseAmp));
 
+  // LED Backdrop is rendered as its own separate direct-canvas layer BEHIND the particle system (see
+  // renderLedBackdropToCanvas in KineticCanvas.tsx) — NOT mixed into this Particle[] array. Every
+  // renderParticlesToCanvas fast path keys its optimization off particles[0].shape alone (assuming
+  // the whole array is one uniform shape, true for every other material); prepending 'circle'
+  // backdrop dots here would silently make the OPTIMIZED PATH render every typography_box particle
+  // after it as a plain circle too, dropping all box text.
   const particles: Particle[] = [];
+
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
     const centerX = item.x + item.w / 2;
@@ -1098,7 +1174,7 @@ export function computeTypographyBoxParticles(
       char: item.word,
       fontSize: cfg.fontSize,
       fontFamily: cfg.fontFamily,
-      glyphColor: cfg.textColor,
+      glyphColor: cfg.textColorMode === 'palette' ? item.fillColor : cfg.textColor,
       strokeColor: cfg.strokeColor,
       strokeWidth: cfg.strokeWidth,
       cornerRadius: item.cornerRadius,
@@ -2878,9 +2954,15 @@ export function renderParticleToCanvas(ctx: CanvasRenderingContext2D, particle: 
       ctx.fillStyle = fillColor;
       ctx.fill();
     }
-    ctx.strokeStyle = particle.strokeColor || '#000000';
-    ctx.lineWidth = particle.strokeWidth ?? 3;
-    ctx.stroke();
+    // Canvas2D silently ignores `lineWidth = 0` (leaves the previous value in place per spec), so an
+    // unconditional stroke() would still draw a stray hairline outline even when the user dials
+    // Outline Width down to 0 for a chrome-free look (e.g. the LED-ticker text-only style).
+    const strokeW = particle.strokeWidth ?? 3;
+    if (strokeW > 0) {
+      ctx.strokeStyle = particle.strokeColor || '#000000';
+      ctx.lineWidth = strokeW;
+      ctx.stroke();
+    }
 
     if (particle.char) {
       ctx.font = `bold ${particle.fontSize || 52}px "${particle.fontFamily || 'Arial'}", sans-serif`;

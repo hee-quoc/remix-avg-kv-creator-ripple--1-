@@ -76,7 +76,8 @@ const FONT_OPTIONS = [
   { name: 'JetBrains Mono', category: 'Scientific Monospace' },
   { name: 'Bungee', category: 'Monolithic' },
   { name: 'Cinzel', category: 'Classic Display' },
-  { name: 'Inter', category: 'Clean Neutral' }
+  { name: 'Inter', category: 'Clean Neutral' },
+  { name: 'Press Start 2P', category: 'Pixel / LED' }
 ];
 
 const THEMES: { id: ThemeId; name: string; dot: string; bg: string; accent: string }[] = [

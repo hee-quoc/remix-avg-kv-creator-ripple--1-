@@ -1,14 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { RenderState, TypographyBoxConfig } from '../types';
 import { DEFAULT_TYPOGRAPHY_BOX_CONFIG } from '../utils/particleRenderer';
-import { Type, Square, Waves, Plus, Trash2 } from 'lucide-react';
+import { Type, Square, Waves, Plus, Trash2, Upload, Grid3x3 } from 'lucide-react';
 
 interface TypographyBoxControlsProps {
   state: RenderState;
   onUpdateState: (updater: (prev: RenderState) => RenderState) => void;
 }
 
-const FONT_CHOICES = ['Arial', 'Helvetica', 'Inter', 'Space Grotesk', 'JetBrains Mono', 'Georgia'];
+const FONT_CHOICES = ['Arial', 'Helvetica', 'Inter', 'Space Grotesk', 'JetBrains Mono', 'Georgia', 'Press Start 2P'];
 
 const PALETTE_ADD_COLORS = ['#00E0FF', '#FF6B6B', '#A78BFA', '#FDBA74', '#34D399'];
 
@@ -23,6 +23,8 @@ export const TypographyBoxControls: React.FC<TypographyBoxControlsProps> = ({ st
     ...DEFAULT_TYPOGRAPHY_BOX_CONFIG,
     ...(state.grid.typographyBox || {})
   };
+  const [customFonts, setCustomFonts] = useState<string[]>([]);
+  const [fontUploadError, setFontUploadError] = useState<string | null>(null);
 
   const update = (patch: Partial<TypographyBoxConfig>) => {
     onUpdateState((prev) => ({
@@ -32,6 +34,25 @@ export const TypographyBoxControls: React.FC<TypographyBoxControlsProps> = ({ st
         typographyBox: { ...DEFAULT_TYPOGRAPHY_BOX_CONFIG, ...(prev.grid.typographyBox || {}), ...patch }
       }
     }));
+  };
+
+  const handleFontFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setFontUploadError(null);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const fontName = file.name.replace(/\.[^/.]+$/, '').trim() || 'Custom Box Font';
+      const fontFace = new FontFace(fontName, arrayBuffer);
+      await fontFace.load();
+      document.fonts.add(fontFace);
+      setCustomFonts((prev) => (prev.includes(fontName) ? prev : [...prev, fontName]));
+      update({ fontFamily: fontName });
+    } catch (err) {
+      console.error('Failed to load local font for Typography Box:', err);
+      setFontUploadError('Could not load this font file — use a valid .ttf, .otf, .woff, or .woff2.');
+    }
   };
 
   const slider = (
@@ -136,7 +157,7 @@ export const TypographyBoxControls: React.FC<TypographyBoxControlsProps> = ({ st
               onChange={(e) => update({ fontFamily: e.target.value })}
               className="w-full bg-[#0A0A0A] border border-[#222] rounded p-1.5 text-[#E0E0E0] text-[10px] focus:outline-none focus:border-amber-500"
             >
-              {[cfg.fontFamily, ...FONT_CHOICES.filter((f) => f !== cfg.fontFamily)].map((f) => (
+              {[cfg.fontFamily, ...customFonts, ...FONT_CHOICES].filter((f, i, arr) => arr.indexOf(f) === i).map((f) => (
                 <option key={f} value={f}>
                   {f}
                 </option>
@@ -145,16 +166,61 @@ export const TypographyBoxControls: React.FC<TypographyBoxControlsProps> = ({ st
           </div>
           <div>
             <label className="text-[#888] text-[10px] uppercase block mb-1">TEXT COLOR</label>
-            <div className="flex items-center gap-2 bg-[#0A0A0A] border border-[#222] rounded p-1.5">
-              <input
-                type="color"
-                value={cfg.textColor}
-                onChange={(e) => update({ textColor: e.target.value })}
-                className="w-5 h-5 rounded cursor-pointer border-0 p-0 bg-transparent"
-              />
-              <span className="text-[10px] text-[#cbd5e1] uppercase">{cfg.textColor}</span>
-            </div>
+            {cfg.textColorMode === 'palette' ? (
+              <div className="bg-[#0A0A0A] border border-[#222] rounded p-1.5 text-[10px] text-[#888] italic">
+                From palette below
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 bg-[#0A0A0A] border border-[#222] rounded p-1.5">
+                <input
+                  type="color"
+                  value={cfg.textColor}
+                  onChange={(e) => update({ textColor: e.target.value })}
+                  className="w-5 h-5 rounded cursor-pointer border-0 p-0 bg-transparent"
+                />
+                <span className="text-[10px] text-[#cbd5e1] uppercase">{cfg.textColor}</span>
+              </div>
+            )}
           </div>
+        </div>
+        <div>
+          <label className="cursor-pointer py-1.5 px-3 bg-[#161616] hover:bg-[#202020] border border-[#333] hover:border-amber-500 rounded text-center text-[10px] text-[#ccc] hover:text-white uppercase transition-colors flex items-center justify-center gap-2">
+            <Upload className="w-3.5 h-3.5 text-amber-400" />
+            <span>Upload Font (.ttf, .otf, .woff, .woff2)</span>
+            <input type="file" accept=".ttf,.otf,.woff,.woff2" onChange={handleFontFileUpload} className="hidden" />
+          </label>
+          {fontUploadError && <p className="text-[9px] text-rose-400 mt-1 leading-relaxed">{fontUploadError}</p>}
+        </div>
+        <div>
+          <label className="text-[#888] text-[10px] uppercase block mb-1">TEXT COLOR SOURCE</label>
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              onClick={() => update({ textColorMode: 'fixed' })}
+              className={`p-1.5 rounded border text-center text-[9px] font-bold uppercase transition-colors ${
+                cfg.textColorMode !== 'palette'
+                  ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                  : 'bg-[#121212] border-[#222] text-[#888] hover:text-white'
+              }`}
+            >
+              Fixed Color
+            </button>
+            <button
+              type="button"
+              onClick={() => update({ textColorMode: 'palette' })}
+              className={`p-1.5 rounded border text-center text-[9px] font-bold uppercase transition-colors ${
+                cfg.textColorMode === 'palette'
+                  ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                  : 'bg-[#121212] border-[#222] text-[#888] hover:text-white'
+              }`}
+            >
+              From Palette
+            </button>
+          </div>
+          <p className="text-[8px] text-[#666] font-sans leading-relaxed mt-1">
+            "From Palette" colors each word from its own box color instead — pair with 0% Filled
+            Ratio and 0px Outline Width for a glowing LED-ticker look with no visible box chrome.
+          </p>
         </div>
         {slider('FONT SIZE', cfg.fontSize, 'fontSize', 20, 90, 1, 'px', 0)}
       </div>
@@ -273,6 +339,53 @@ export const TypographyBoxControls: React.FC<TypographyBoxControlsProps> = ({ st
             <Plus className="w-3 h-3" /> ADD
           </button>
         </div>
+      </div>
+
+      {/* LED Backdrop */}
+      <div className="space-y-2.5 p-3 bg-[#0d0d12] border border-[#262630] rounded-lg">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-bold uppercase text-amber-400 flex items-center gap-1.5">
+            <Grid3x3 className="w-3.5 h-3.5" /> LED BACKDROP
+          </span>
+          <button
+            type="button"
+            onClick={() => update({ ledBackdrop: !cfg.ledBackdrop })}
+            className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase border transition-all ${
+              cfg.ledBackdrop
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
+                : 'bg-[#181818] text-[#777] border-[#333]'
+            }`}
+          >
+            {cfg.ledBackdrop ? 'ON' : 'OFF'}
+          </button>
+        </div>
+        <p className="text-[8px] text-[#666] font-sans leading-relaxed -mt-1">
+          A static grid of dim dots behind the words — unlit LED/dot-matrix pixels showing through
+          the gaps, like a real ticker board. Never reacts to the ripple (pure backdrop texture).
+        </p>
+        {cfg.ledBackdrop && (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              {slider('DOT SPACING', cfg.ledBackdropSpacing, 'ledBackdropSpacing', 6, 40, 1, 'px', 0)}
+              {slider('DOT SIZE', cfg.ledBackdropDotSize, 'ledBackdropDotSize', 0.5, 4, 0.1, 'px', 1)}
+            </div>
+            <div className="grid grid-cols-2 gap-3 items-end">
+              <div>
+                <label className="text-[#888] text-[10px] uppercase block mb-1">DOT COLOR</label>
+                <div className="flex items-center gap-2 bg-[#0A0A0A] border border-[#222] rounded p-1.5">
+                  <input
+                    type="color"
+                    value={cfg.ledBackdropColor}
+                    onChange={(e) => update({ ledBackdropColor: e.target.value })}
+                    className="w-5 h-5 rounded cursor-pointer border-0 p-0 bg-transparent"
+                  />
+                  <span className="text-[10px] text-[#cbd5e1] uppercase">{cfg.ledBackdropColor}</span>
+                </div>
+              </div>
+              {slider('DOT OPACITY', cfg.ledBackdropOpacity, 'ledBackdropOpacity', 0, 1, 0.02, '', 2)}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Ripple Response */}

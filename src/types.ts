@@ -268,7 +268,10 @@ export interface TypographyBoxConfig {
   cornerRadiusMax: number; // px — random mode upper bound
   filledRatio: number; // 0..1 probability a box is solid-filled vs outline-only, default 0.5 (matches original's 50%)
   strokeColor: string; // default #000000
-  textColor: string; // default #000000
+  textColor: string; // default #000000, used when textColorMode is 'fixed'
+  textColorMode: 'fixed' | 'palette'; // 'palette' colors each box's word from its OWN box color
+  // instead of one uniform textColor — for LED-ticker-style looks where the box itself has no visible
+  // fill/stroke and only the glowing colored text reads (see the "Pixel Ticker" preset).
   strokeWidth: number; // px, default 3
 
   // Ripple Response (task item 7) — how the wave engine's per-point intensity maps to this box's opacity
@@ -278,6 +281,16 @@ export interface TypographyBoxConfig {
   opacityInfluence: number; // 0..1 — blends between baseOpacity (0) and the full ripple-driven range (1)
   opacitySoftness: number; // 0..1 — width of the smooth on/off transition band around the ripple threshold
   invertOpacity: boolean; // when true, boxes dim where the wave is strongest instead of lighting up
+
+  // LED Backdrop — an optional static grid of small dim dots covering the whole canvas, BEHIND the
+  // word boxes, so the material reads as an actual LED/dot-matrix board (unlit pixels visible in the
+  // gaps between letters and words) rather than plain empty background. Off by default so every
+  // existing preset (Global Wire) renders unchanged.
+  ledBackdrop: boolean;
+  ledBackdropColor: string;
+  ledBackdropOpacity: number; // 0..1
+  ledBackdropSpacing: number; // px between dots
+  ledBackdropDotSize: number; // px radius per dot
 }
 
 /**
