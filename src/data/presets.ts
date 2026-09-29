@@ -971,7 +971,7 @@ export const PRESETS: Preset[] = [
     id: 'pixel_ticker',
     name: '11. Pixel Ticker',
     category: 'News',
-    description: 'A glowing green/cyan LED stock-ticker board — the same word-box grid and ripple engine as Global Wire, reskinned pixel-style.',
+    description: 'A glowing multicolor LED stock-ticker board — the same word-box grid and ripple engine as Global Wire, reskinned pixel-style.',
     formulaDescription: 'Packed sharp-cornered typography boxes (existing Typography Box Material, textColorMode "palette") sampled by the shared wave engine — same mechanics as Global Wire, chrome-free glowing text instead of filled pills.',
     compositionMode: 'full_molecule',
     defaultVisualStyle: 'dot_matrix',
@@ -982,12 +982,13 @@ export const PRESETS: Preset[] = [
       font: {
         text: 'STOCK\nTICKER',
         fontFamily: 'Press Start 2P',
-        fontSize: 90,
+        fontSize: 10,
         fontWeight: 400,
         letterSpacing: 2,
         lineHeight: 1.15,
         textAlign: 'center',
-        invertText: false
+        invertText: false,
+        maskMode: 'text'
       },
       grid: {
         gridType: 'square',
@@ -1007,16 +1008,13 @@ export const PRESETS: Preset[] = [
             'XPLR▲23.11', 'VNTK▼77.65', 'HDRO▲9.42', 'BLTZ▼142.30',
             'OMEGA▲301.05', 'KRXP▼18.77', 'DYNM▲64.20', 'FUSE▼36.84'
           ],
-          colorPalette: ['#00FF6A', '#00F0FF', '#39FF14', '#00D8A0'],
+          colorPalette: ['#7429ff', '#39FF14', '#ff1a1a', '#ffd500', '#7300ff'],
           fontFamily: 'Press Start 2P',
-          // Same box geometry/pitch as Global Wire (boxHeight/padding/margins byte-identical) so the
-          // ripple reveal has the exact same grain/rhythm — fontSize is the one necessary exception,
-          // lowered because Press Start 2P's glyphs run far wider/taller per declared px than Arial.
           fontSize: 20,
-          boxHeight: 58,
-          horizontalPadding: 34,
+          boxHeight: 117,
+          horizontalPadding: 16,
           marginX: 20,
-          marginY: 20,
+          marginY: 0,
           cornerRadius: 0,
           cornerRadiusMode: 'uniform',
           cornerRadiusMin: 0,
@@ -1042,12 +1040,12 @@ export const PRESETS: Preset[] = [
           ledBackdropDotSize: 1.6
         }
       },
-      // Same in-phase concentric ripple tuning as Global Wire.
+      // Same in-phase concentric ripple tuning as Global Wire (waveSpeed nudged up slightly).
       wave: {
         mode: 'flow',
         pattern: 'circular',
         waveType: 'sine',
-        waveSpeed: 1.6,
+        waveSpeed: 1.65,
         waveFrequency: 0.2,
         waveAmplitude: 1.35,
         waveSoftness: 0.5,
