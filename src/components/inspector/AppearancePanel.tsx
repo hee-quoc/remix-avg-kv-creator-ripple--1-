@@ -3,7 +3,6 @@ import { RenderState, ThemeId } from '../../types';
 import { CONTROL_REGISTRY } from '../../data/controlRegistry';
 import { RegistryControl } from '../RegistryControl';
 import { Accordion } from '../ui';
-import { VisualStyleGallery } from '../VisualStyleGallery';
 
 interface AppearancePanelProps {
   state: RenderState;
@@ -71,7 +70,7 @@ export const AppearancePanel: React.FC<AppearancePanelProps> = ({ state, onUpdat
         <RegistryControl control={get('style.bgColor')} state={state} onUpdate={onUpdateState} />
       </div>
 
-      <VisualStyleGallery state={state} onUpdateState={onUpdateState} />
+      {/* Thư viện Visual Style tạm ẩn khỏi UI theo yêu cầu — component vẫn còn nguyên, chưa xoá. */}
 
       <Accordion title="Nâng cao" storageKey="kv.appearance.advanced">
         <RegistryControl control={get('style.uniformColorBrightness')} state={state} onUpdate={onUpdateState} />
