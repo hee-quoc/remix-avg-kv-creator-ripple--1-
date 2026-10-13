@@ -132,7 +132,14 @@ export const KineticCanvas: React.FC<KineticCanvasProps> = ({
   useEffect(() => {
     let active = true;
     const timer = setTimeout(async () => {
-      const sdfRes = 1024; // Standard high precision 1024x1024 distance map
+      // The SDF texture must share the design canvas's own 16:9 aspect ratio — sampleSDF (sdf.ts)
+      // maps design-space x/y onto texture pixels using independent per-axis scale factors
+      // (x/screenWidth, y/screenHeight), so a SQUARE texture sampled against a 16:9 canvas silently
+      // stretches every mask (text, shapes, SVG logos) ~1.78x horizontally. Height stays the
+      // historical 1024 (preserves existing presets' fontSize-driven vertical sizing exactly);
+      // width is derived from the canvas aspect so horizontal scaling matches vertical scaling.
+      const sdfResHeight = 1024;
+      const sdfResWidth = Math.round(sdfResHeight * (DESIGN_WIDTH / DESIGN_HEIGHT));
 
       if (state.font.maskMode === 'svg_mask' && state.font.maskSvgDataUrl) {
         const img = new Image();
@@ -141,8 +148,8 @@ export const KineticCanvas: React.FC<KineticCanvasProps> = ({
           try {
             const sdf = generateImageSDF(
               img,
-              sdfRes,
-              sdfRes,
+              sdfResWidth,
+              sdfResHeight,
               state.font.maskScaleX ?? state.font.maskScale ?? 1.0,
               state.font.maskScaleY ?? state.font.maskScale ?? 1.0,
               state.font.maskSvgXml
@@ -169,7 +176,7 @@ export const KineticCanvas: React.FC<KineticCanvasProps> = ({
 
       if (!active) return;
 
-      const sdf = generateTextSDF(state.font, sdfRes, sdfRes);
+      const sdf = generateTextSDF(state.font, sdfResWidth, sdfResHeight);
       setSdfData(sdf);
     }, 60);
 

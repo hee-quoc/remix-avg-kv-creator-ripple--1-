@@ -187,9 +187,13 @@ export function generateImageSDF(
     }
   }
 
-  const padding = targetWidth * 0.15;
-  const availW = targetWidth - padding * 2;
-  const availH = targetHeight - padding * 2;
+  // Padding must be computed per-axis (not as a fraction of targetWidth for both), since this
+  // texture is no longer guaranteed square — see the doc comment at its call site in
+  // KineticCanvas.tsx for why.
+  const paddingX = targetWidth * 0.15;
+  const paddingY = targetHeight * 0.15;
+  const availW = targetWidth - paddingX * 2;
+  const availH = targetHeight - paddingY * 2;
   const baseScale = Math.min(availW / intrinsicW, availH / intrinsicH);
   const drawW = intrinsicW * baseScale * maskScaleX;
   const drawH = intrinsicH * baseScale * maskScaleY;
