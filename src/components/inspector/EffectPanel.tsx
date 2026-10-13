@@ -233,9 +233,7 @@ export const EffectPanel: React.FC<EffectPanelProps> = ({ state, onUpdateState }
           <RegistryControl control={get('audio.enabled')} state={state} onUpdate={onUpdateState} />
           <RegistryControl control={get('audio.sensitivity')} state={state} onUpdate={onUpdateState} />
           <Accordion title="Nâng cao" storageKey="kv.effect.audio.advanced" defaultOpen>
-            <div className="kv-legacy-embed">
-              <AudioReactivityControls state={state} onUpdateState={onUpdateState} />
-            </div>
+            <AudioReactivityControls state={state} onUpdateState={onUpdateState} />
           </Accordion>
         </div>
       )}
