@@ -78,7 +78,18 @@ export const FlipDiscShapePanel: React.FC<FlipDiscShapePanelProps> = ({ config, 
       const readerUrl = new FileReader();
       readerUrl.onload = (evUrl) => {
         const dataUrl = evUrl.target?.result as string;
-        onUpdateConfig({ maskMode: 'svg', maskSvgXml: xml, maskSvgDataUrl: dataUrl, maskSvgName: file.name });
+        // Reset scale/offset on every fresh upload — same fix as Kinetic's TextPanel.tsx
+        // handleSvgMaskUpload, so a brand new logo never inherits a stale multiplier/offset left
+        // over from a previous upload or manual slider drag.
+        onUpdateConfig({
+          maskMode: 'svg',
+          maskSvgXml: xml,
+          maskSvgDataUrl: dataUrl,
+          maskSvgName: file.name,
+          maskScale: 1,
+          maskOffsetX: 0,
+          maskOffsetY: 0
+        });
       };
       readerUrl.readAsDataURL(file);
     };

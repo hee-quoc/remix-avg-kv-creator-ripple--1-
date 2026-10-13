@@ -79,7 +79,20 @@ export const TextPanel: React.FC<TextPanelProps> = ({ state, onUpdateState }) =>
         const dataUrl = evUrl.target?.result as string;
         onUpdateState((prev) => ({
           ...prev,
-          font: { ...prev.font, maskMode: 'svg_mask', maskSvgXml: xml, maskSvgDataUrl: dataUrl, maskSvgName: file.name }
+          font: {
+            ...prev.font,
+            maskMode: 'svg_mask',
+            maskSvgXml: xml,
+            maskSvgDataUrl: dataUrl,
+            maskSvgName: file.name,
+            // A fresh upload must start at the file's own natural fit, not whatever maskScale a
+            // previous preset or prior logo happened to leave behind — otherwise a brand new SVG
+            // silently inherits an unrelated 2x/3x/0.75x multiplier and renders at the wrong size
+            // relative to the actual file (e.g. Global Pulse bakes in maskScale: 2).
+            maskScale: 1,
+            maskScaleX: 1,
+            maskScaleY: 1
+          }
         }));
       };
       readerUrl.readAsDataURL(file);
