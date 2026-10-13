@@ -772,6 +772,10 @@ export interface Preset {
   pinned?: boolean;
   quickControls?: string[];
   legacyName?: string;
+  // Hides this preset from every PresetStrip view (pinned/category/"Tất cả") without deleting its
+  // data — used to temporarily retire the original Kinetic preset set in favor of a newer curated
+  // one while keeping the old presets' code/config intact and reachable by id if ever needed again.
+  hidden?: boolean;
   config: {
     font?: Partial<FontConfig>;
     grid?: Partial<GridConfig>;

@@ -67,7 +67,7 @@ export const PresetStrip: React.FC<PresetStripProps> = ({
   };
 
   const allCards: StripCard[] = useMemo(() => {
-    const kinetic: StripCard[] = PRESETS.map((p) => ({
+    const kinetic: StripCard[] = PRESETS.filter((p) => !p.hidden).map((p) => ({
       id: p.id,
       name: p.name,
       category: p.category,
