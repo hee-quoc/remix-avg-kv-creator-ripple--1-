@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { RenderState } from '../../types';
 import { CONTROL_REGISTRY } from '../../data/controlRegistry';
 import { RegistryControl } from '../RegistryControl';
-import { Segmented, Accordion } from '../ui';
+import { Segmented, Accordion, Slider } from '../ui';
 import { Upload, Link, Unlink } from 'lucide-react';
 
 interface TextPanelProps {
@@ -266,17 +266,34 @@ export const TextPanel: React.FC<TextPanelProps> = ({ state, onUpdateState }) =>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <RegistryControl
-            control={{ ...get('font.maskScaleX'), default: scaleX }}
-            state={state}
-            onUpdate={onUpdateState}
+          {/* Hand-wired rather than RegistryControl — the "Đồng bộ" (linked) toggle above needs to
+              push the SAME value into both maskScaleX and maskScaleY when dragging either slider,
+              which RegistryControl's generic single-path setPath() call can't express (it was
+              previously wired straight to onUpdateState here, silently ignoring maskLinkAspect
+              entirely — dragging X never touched Y even in "linked" mode, so the mask would end up
+              non-uniformly stretched any time a user expected the link to hold). setScale (above)
+              already had the correct logic; it just wasn't connected to these sliders. */}
+          <Slider
+            label={get('font.maskScaleX').label.vi}
+            value={scaleX}
+            onChange={(v) => setScale('x', v)}
+            min={get('font.maskScaleX').min as number}
+            max={get('font.maskScaleX').max as number}
+            step={get('font.maskScaleX').step as number}
             unit="x"
+            decimals={2}
+            defaultValue={1}
           />
-          <RegistryControl
-            control={{ ...get('font.maskScaleY'), default: scaleY }}
-            state={state}
-            onUpdate={onUpdateState}
+          <Slider
+            label={get('font.maskScaleY').label.vi}
+            value={scaleY}
+            onChange={(v) => setScale('y', v)}
+            min={get('font.maskScaleY').min as number}
+            max={get('font.maskScaleY').max as number}
+            step={get('font.maskScaleY').step as number}
             unit="x"
+            decimals={2}
+            defaultValue={1}
           />
         </div>
       </Accordion>
