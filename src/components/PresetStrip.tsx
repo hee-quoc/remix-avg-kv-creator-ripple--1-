@@ -3,7 +3,9 @@ import { RenderState, PresetCategory } from '../types';
 import { PRESETS } from '../data/presets';
 import { FLIP_DISC_PRESETS } from '../flipDisc/presets';
 import { TYPOGRAPHY_TILES_PRESETS } from '../typographyTiles/presets';
+import { copyJsonToClipboard } from '../utils/clipboard';
 import { Chip } from './ui';
+import { Copy, Check } from 'lucide-react';
 
 interface PresetStripProps {
   state: RenderState;
@@ -20,6 +22,7 @@ interface StripCard {
   swatch: string[];
   isActive: boolean;
   onClick: () => void;
+  config: unknown;
 }
 
 type Filter = 'pinned' | 'all' | PresetCategory | 'Interactive';
@@ -54,6 +57,14 @@ export const PresetStrip: React.FC<PresetStripProps> = ({
   onSelectTypographyTilesPreset
 }) => {
   const [filter, setFilter] = useState<Filter>('pinned');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyCard = async (e: React.SyntheticEvent, card: StripCard) => {
+    e.stopPropagation();
+    await copyJsonToClipboard(card.config);
+    setCopiedId(card.id);
+    window.setTimeout(() => setCopiedId((cur) => (cur === card.id ? null : cur)), 1500);
+  };
 
   const allCards: StripCard[] = useMemo(() => {
     const kinetic: StripCard[] = PRESETS.map((p) => ({
@@ -63,7 +74,8 @@ export const PresetStrip: React.FC<PresetStripProps> = ({
       pinned: !!p.pinned,
       swatch: [p.config.style?.dotColor || '#00f0ff', p.config.style?.bgColor || '#0a0d14', p.config.style?.accentColor || '#38bdf8'],
       isActive: state.activePresetId === p.id,
-      onClick: () => onSelectPreset(p.id)
+      onClick: () => onSelectPreset(p.id),
+      config: p.config
     }));
 
     const flipDisc: StripCard[] = onSelectFlipDiscPreset
@@ -74,7 +86,8 @@ export const PresetStrip: React.FC<PresetStripProps> = ({
           pinned: !!p.pinned,
           swatch: [p.config.frontColor, p.config.backColor, p.config.sideColor],
           isActive: false,
-          onClick: () => onSelectFlipDiscPreset(p.id)
+          onClick: () => onSelectFlipDiscPreset(p.id),
+          config: p.config
         }))
       : [];
 
@@ -86,7 +99,8 @@ export const PresetStrip: React.FC<PresetStripProps> = ({
           pinned: !!p.pinned,
           swatch: p.config.palette.slice(0, 3),
           isActive: false,
-          onClick: () => onSelectTypographyTilesPreset(p.id)
+          onClick: () => onSelectTypographyTilesPreset(p.id),
+          config: p.config
         }))
       : [];
 
@@ -134,7 +148,7 @@ export const PresetStrip: React.FC<PresetStripProps> = ({
             key={card.id}
             type="button"
             onClick={card.onClick}
-            className="w-[150px] shrink-0 rounded-[14px] bg-[var(--surface)] border text-left overflow-hidden transition-colors"
+            className="relative w-[150px] shrink-0 rounded-[14px] bg-[var(--surface)] border text-left overflow-hidden transition-colors"
             style={{ borderColor: card.isActive ? 'var(--ink)' : 'var(--border)', borderWidth: card.isActive ? 2 : 1 }}
           >
             <div
@@ -145,6 +159,19 @@ export const PresetStrip: React.FC<PresetStripProps> = ({
                 <span key={i} className="w-3.5 h-3.5 rounded-full border border-white/20" style={{ backgroundColor: c }} />
               ))}
             </div>
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => handleCopyCard(e, card)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') handleCopyCard(e, card);
+              }}
+              title="Copy cấu hình preset (JSON)"
+              className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center cursor-pointer"
+              style={{ background: 'rgba(0,0,0,0.45)', color: '#fff' }}
+            >
+              {copiedId === card.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+            </span>
             <div className="px-2.5 py-2 flex flex-col gap-0.5">
               <span className="text-[13px] font-semibold truncate" style={{ color: 'var(--ink)' }}>
                 {card.name}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FlipDiscConfig } from '../../flipDisc/types';
+import { copyJsonToClipboard } from '../../utils/clipboard';
 import { PillButton } from '../ui';
 import { Copy, Check, History as HistoryIcon } from 'lucide-react';
 
@@ -18,27 +19,7 @@ export const FlipDiscHistoryPanel: React.FC<FlipDiscHistoryPanelProps> = ({ conf
   const [copied, setCopied] = useState(false);
 
   const copyConfigJson = async () => {
-    const text = JSON.stringify(config, null, 2);
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(text);
-      } else {
-        throw new Error('clipboard API unavailable');
-      }
-    } catch {
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.style.position = 'fixed';
-      textarea.style.left = '-9999px';
-      document.body.appendChild(textarea);
-      textarea.select();
-      try {
-        document.execCommand('copy');
-      } catch {
-        /* best effort only */
-      }
-      document.body.removeChild(textarea);
-    }
+    await copyJsonToClipboard(config);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1500);
   };

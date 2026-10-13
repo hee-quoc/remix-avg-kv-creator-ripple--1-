@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, startTransition } from 'react';
 import { RenderState } from './types';
 import { applyPresetToState, BASE_DEFAULT_STATE } from './data/presets';
 import { KineticCanvas } from './components/KineticCanvas';
@@ -115,16 +115,27 @@ export default function App() {
   const canRedo = historyCursor !== null && historyCursor < history.length - 1;
 
   const handleSelectPreset = useCallback((presetId: string) => {
-    setEngineMode('kinetic');
     setHistoryCursor(null);
     setState((prev) => applyPresetToState(presetId, prev));
+    // Mounting KineticCanvas is cheap, but switching ENGINES (e.g. away from a live WebGL context)
+    // can still cost a frame or two — see the matching comment on handleSelectFlipDiscPreset below
+    // for why this is wrapped in startTransition rather than a plain setState.
+    startTransition(() => setEngineMode('kinetic'));
   }, []);
 
   const handleSelectFlipDiscPreset = useCallback((presetId: string) => {
     const applied = applyFlipDiscPreset(presetId);
-    setEngineMode('flip_disc');
     setFlipDiscPresetId(applied.presetId);
     setFlipDiscConfig(applied.config);
+    // Mounting FlipDiscCanvas for the first time compiles WebGL shaders and builds the full disc
+    // mesh (up to density^2 tiles, each a real 3D front/back/side geometry) synchronously in a
+    // layout-adjacent effect — measured ~550ms blocking the main thread, which Chrome's INP tooling
+    // flags against whatever DOM element the originating click bubbled through (a PresetStrip card),
+    // even though the actual cost has nothing to do with that element. startTransition marks this
+    // state update as interruptible/low-priority, letting React yield to the browser and paint
+    // intermediate frames instead of blocking the whole commit — it doesn't make the WebGL init
+    // itself faster, but it stops that cost from being attributed to "this click froze the page".
+    startTransition(() => setEngineMode('flip_disc'));
   }, []);
 
   const handleUpdateFlipDiscConfig = useCallback((patch: Partial<FlipDiscConfig>) => {

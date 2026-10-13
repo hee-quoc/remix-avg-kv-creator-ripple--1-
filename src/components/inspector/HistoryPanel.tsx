@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { RenderState } from '../../types';
 import { HistoryEntry } from '../../utils/historyStore';
+import { copyJsonToClipboard } from '../../utils/clipboard';
 import { PillButton, Chip } from '../ui';
 import { Copy, Check, RotateCw, Trash2, History as HistoryIcon } from 'lucide-react';
 
@@ -20,27 +21,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ state, history, onRe
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const copyStateJson = async (id: string, snapshot: RenderState) => {
-    const text = JSON.stringify(snapshot, null, 2);
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(text);
-      } else {
-        throw new Error('clipboard API unavailable');
-      }
-    } catch {
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.style.position = 'fixed';
-      textarea.style.left = '-9999px';
-      document.body.appendChild(textarea);
-      textarea.select();
-      try {
-        document.execCommand('copy');
-      } catch {
-        /* best effort only */
-      }
-      document.body.removeChild(textarea);
-    }
+    await copyJsonToClipboard(snapshot);
     setCopiedId(id);
     window.setTimeout(() => setCopiedId((cur) => (cur === id ? null : cur)), 1500);
   };
