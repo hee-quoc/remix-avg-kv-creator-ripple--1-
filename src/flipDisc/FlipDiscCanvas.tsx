@@ -239,7 +239,7 @@ export const FlipDiscCanvas: React.FC<FlipDiscCanvasProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`flex-1 relative overflow-hidden ${
+      className={`relative w-full h-full overflow-hidden ${
         transparentBg
           ? 'bg-[#0a0a0a] bg-[radial-gradient(#262626_1px,transparent_1px)] [background-size:16px_16px]'
           : 'bg-black'

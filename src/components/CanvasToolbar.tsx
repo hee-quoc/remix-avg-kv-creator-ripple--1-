@@ -4,10 +4,16 @@ import { Segmented, PillButton } from './ui';
 import { Play, Pause } from 'lucide-react';
 
 interface CanvasToolbarProps {
+  engineMode: 'kinetic' | 'flip_disc';
   state: RenderState;
   onUpdateState: (updater: (prev: RenderState) => RenderState) => void;
   fps: number;
   dotCount: number;
+  // Flip Disc — only meaningful when engineMode === 'flip_disc'.
+  flipDiscPlaying?: boolean;
+  onToggleFlipDiscPlaying?: () => void;
+  flipDiscFps?: number;
+  flipDiscTileCount?: number;
 }
 
 const QUALITY_OPTIONS: { value: PreviewQuality; label: string }[] = [
@@ -24,26 +30,48 @@ const QUALITY_OPTIONS: { value: PreviewQuality; label: string }[] = [
  * engine has no notion of a non-16:9 output frame or a preview zoom level today, and faking either
  * control here would just be decorative — left as an open item (spec section 11, Q4-adjacent) for
  * whoever scopes the real feature.
+ *
+ * Merge pass — shared with Flip Disc too now. Stable/Flow, Quality and Masked have no Flip Disc
+ * equivalent (no wave-mode concept, no adaptive-resolution concept, clip-mask is a Shape-tab control
+ * not a quick toggle), so engineMode === 'flip_disc' only shows Play/Pause + a tile-count/fps readout
+ * — kept simple rather than inventing fake controls, same call made for aspect-ratio/zoom above.
  */
-export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ state, onUpdateState, fps, dotCount }) => {
+export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
+  engineMode,
+  state,
+  onUpdateState,
+  fps,
+  dotCount,
+  flipDiscPlaying,
+  onToggleFlipDiscPlaying,
+  flipDiscFps,
+  flipDiscTileCount
+}) => {
+  const isFlipDisc = engineMode === 'flip_disc';
+  const isPlaying = isFlipDisc ? !!flipDiscPlaying : state.isPlaying;
+
   return (
     <div className="absolute top-3.5 left-3.5 right-3.5 z-10 flex items-center justify-between pointer-events-none">
       <div className="flex items-center gap-2 pointer-events-auto">
         <PillButton
-          onClick={() => onUpdateState((prev) => ({ ...prev, isPlaying: !prev.isPlaying }))}
-          aria-label={state.isPlaying ? 'Tạm dừng' : 'Phát'}
+          onClick={() =>
+            isFlipDisc ? onToggleFlipDiscPlaying?.() : onUpdateState((prev) => ({ ...prev, isPlaying: !prev.isPlaying }))
+          }
+          aria-label={isPlaying ? 'Tạm dừng' : 'Phát'}
           className="kv-pill-icon"
         >
-          {state.isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+          {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
         </PillButton>
-        <Segmented
-          value={state.wave.mode}
-          onChange={(v) => onUpdateState((prev) => ({ ...prev, wave: { ...prev.wave, mode: v as 'stable' | 'flow' } }))}
-          options={[
-            { value: 'stable', label: 'Stable' },
-            { value: 'flow', label: 'Flow' }
-          ]}
-        />
+        {!isFlipDisc && (
+          <Segmented
+            value={state.wave.mode}
+            onChange={(v) => onUpdateState((prev) => ({ ...prev, wave: { ...prev.wave, mode: v as 'stable' | 'flow' } }))}
+            options={[
+              { value: 'stable', label: 'Stable' },
+              { value: 'flow', label: 'Flow' }
+            ]}
+          />
+        )}
       </div>
 
       <div className="flex items-center gap-2 pointer-events-auto">
@@ -51,19 +79,23 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ state, onUpdateSta
           className="hidden sm:inline text-[10px] px-2.5 py-1 rounded-[var(--radius-pill)]"
           style={{ background: 'var(--surface)', color: 'var(--muted)', fontFamily: 'var(--font-mono)', border: '1px solid var(--border)' }}
         >
-          {dotCount.toLocaleString()} dots · {fps} fps
+          {isFlipDisc ? `${(flipDiscTileCount || 0).toLocaleString()} tiles · ${flipDiscFps || 0} fps` : `${dotCount.toLocaleString()} dots · ${fps} fps`}
         </span>
-        <Segmented
-          value={state.previewQuality || 'auto'}
-          onChange={(v) => onUpdateState((prev) => ({ ...prev, previewQuality: v as PreviewQuality }))}
-          options={QUALITY_OPTIONS.map((q) => ({ value: q.value, label: q.label }))}
-        />
-        <PillButton
-          variant={state.grid.hideBackgroundDots ? 'active' : 'default'}
-          onClick={() => onUpdateState((prev) => ({ ...prev, grid: { ...prev.grid, hideBackgroundDots: !prev.grid.hideBackgroundDots } }))}
-        >
-          Masked {state.grid.hideBackgroundDots ? '✓' : ''}
-        </PillButton>
+        {!isFlipDisc && (
+          <>
+            <Segmented
+              value={state.previewQuality || 'auto'}
+              onChange={(v) => onUpdateState((prev) => ({ ...prev, previewQuality: v as PreviewQuality }))}
+              options={QUALITY_OPTIONS.map((q) => ({ value: q.value, label: q.label }))}
+            />
+            <PillButton
+              variant={state.grid.hideBackgroundDots ? 'active' : 'default'}
+              onClick={() => onUpdateState((prev) => ({ ...prev, grid: { ...prev.grid, hideBackgroundDots: !prev.grid.hideBackgroundDots } }))}
+            >
+              Masked {state.grid.hideBackgroundDots ? '✓' : ''}
+            </PillButton>
+          </>
+        )}
       </div>
     </div>
   );

@@ -4,8 +4,6 @@ import { CONTROL_REGISTRY } from '../../data/controlRegistry';
 import { RegistryControl } from '../RegistryControl';
 import { Segmented, Accordion } from '../ui';
 import { Upload, Link, Unlink } from 'lucide-react';
-import { CompositionModeControls } from '../CompositionModeControls';
-import { TextLayoutControls } from '../TextLayoutControls';
 
 interface TextPanelProps {
   state: RenderState;
@@ -46,9 +44,10 @@ const get = (id: string) => CONTROL_REGISTRY.find((c) => c.id === id)!;
 /**
  * Redesign V1-B, Phase P4 — the real "Text" group (spec section 5): content, mask type + its
  * sub-pickers, font + upload, size/weight/spacing/line-height/align are Basic (match on screen as
- * soon as the tab opens); invert mask, linked mask scale, and the two controls that used to live in
- * the separate "Bố cục" group (Composition mode, independent text layer) are tucked into "Nâng cao" —
- * folded in here per explicit instruction to drop the Composition tab rather than leave them orphaned.
+ * soon as the tab opens); invert mask and linked mask scale are tucked into "Nâng cao". Composition
+ * mode (CompositionModeControls) and the independent KV text layer (TextLayoutControls) briefly lived
+ * here after the "Bố cục" group was dropped, but were removed entirely per explicit instruction —
+ * compositionMode is still readable/settable via presets and state, just no longer exposed as UI.
  */
 export const TextPanel: React.FC<TextPanelProps> = ({ state, onUpdateState }) => {
   const [customFonts, setCustomFonts] = useState<{ name: string; category: string }[]>([]);
@@ -266,16 +265,6 @@ export const TextPanel: React.FC<TextPanelProps> = ({ state, onUpdateState }) =>
             onUpdate={onUpdateState}
             unit="x"
           />
-        </div>
-
-        <div className="pt-1 border-t" style={{ borderColor: 'var(--border)' }}>
-          <p className="text-[11px] mb-2" style={{ color: 'var(--muted)' }}>
-            Bố cục (composition mode) &amp; lớp chữ gốc độc lập — gộp vào đây từ nhóm "Bố cục" đã bỏ.
-          </p>
-          <div className="flex flex-col gap-3">
-            <CompositionModeControls state={state} onUpdateState={onUpdateState} />
-            <TextLayoutControls state={state} onUpdateState={onUpdateState} />
-          </div>
         </div>
       </Accordion>
     </div>

@@ -78,8 +78,31 @@ export function generateSVGFromParticles(
   const gridGroup = document.createElementNS(SVG_NS, 'g');
   gridGroup.setAttribute('id', 'halftone-kinetic-grid');
 
-  // Render each particle in the snapshot to SVG group using shared renderParticleToSVG
+  // Render each particle in the snapshot to SVG group using shared renderParticleToSVG. Particles
+  // fully outside the visible artboard (e.g. radial grid rings/wave displacement pushing points past
+  // the edge) are skipped — Canvas2D naturally clips these at render time for free, but an SVG export
+  // serializes every element it's given regardless of the outer viewBox, so leaving them in bloats
+  // file size with geometry nobody ever sees. The margin is generous (2x the particle's own largest
+  // dimension) so nothing actually visible near an edge gets cut.
   for (const particle of particles) {
+    const margin =
+      Math.max(
+        particle.radius || 0,
+        particle.width || 0,
+        particle.height || 0,
+        particle.fontSize || 0,
+        particle.stitchLength || 0,
+        particle.extrusionDepth || 0,
+        4
+      ) * 2;
+    if (
+      particle.x + margin < 0 ||
+      particle.x - margin > width ||
+      particle.y + margin < 0 ||
+      particle.y - margin > height
+    ) {
+      continue;
+    }
     renderParticleToSVG(gridGroup, particle, defs, svg.ownerDocument);
   }
 

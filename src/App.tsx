@@ -8,10 +8,8 @@ import { PresetStrip } from './components/PresetStrip';
 import { InspectorShell } from './components/InspectorShell';
 import { useSettingsHistory } from './hooks/useSettingsHistory';
 import { FlipDiscConfig } from './flipDisc/types';
-import { applyFlipDiscPreset } from './flipDisc/presets';
+import { applyFlipDiscPreset, FLIP_DISC_PRESETS } from './flipDisc/presets';
 import { FlipDiscCanvas, FlipDiscImageActions } from './flipDisc/FlipDiscCanvas';
-import { FlipDiscControls } from './flipDisc/FlipDiscControls';
-import { FlipDiscHeaderBar } from './flipDisc/FlipDiscHeaderBar';
 import { TypographyTilesConfig } from './typographyTiles/types';
 import { applyTypographyTilesPreset } from './typographyTiles/presets';
 import { TypographyTilesCanvas } from './typographyTiles/TypographyTilesCanvas';
@@ -194,69 +192,62 @@ export default function App() {
     );
   }
 
-  if (engineMode === 'flip_disc') {
-    return (
-      <div className="w-screen h-screen flex flex-col overflow-hidden bg-black font-sans select-none">
-        <FlipDiscHeaderBar
-          activePresetId={flipDiscPresetId}
-          isPlaying={flipDiscPlaying}
-          fps={flipDiscFps}
-          tileCount={flipDiscTileCount}
-          transparentBg={flipDiscTransparentBg}
-          onToggleTransparentBg={() => setFlipDiscTransparentBg((v) => !v)}
-          onTogglePlay={() => setFlipDiscPlaying((v) => !v)}
-          onSelectPreset={handleSelectFlipDiscPreset}
-          onExportPNG={() => flipDiscExportRef.current?.()}
-          onBackToKinetic={() => setEngineMode('kinetic')}
-          onToggleControls={() => setIsControlsOpen((v) => !v)}
-          isControlsOpen={isControlsOpen}
-        />
-        <div className="flex-1 flex overflow-hidden relative">
-          <FlipDiscCanvas
-            config={flipDiscConfig}
-            isPlaying={flipDiscPlaying}
-            transparentBg={flipDiscTransparentBg}
-            onFpsUpdate={handleFlipDiscFpsUpdate}
-            exportRequestRef={flipDiscExportRef}
-            imageActionsRef={flipDiscImageActionsRef}
-            onImageStatus={handleFlipDiscImageStatus}
-          />
-          {isControlsOpen && (
-            <div className="w-[340px] shrink-0 bg-[#08080b] border-l border-[#222] overflow-y-auto">
-              <FlipDiscControls
-                config={flipDiscConfig}
-                onUpdate={handleUpdateFlipDiscConfig}
-                imageActionsRef={flipDiscImageActionsRef}
-                frontImageStatus={flipDiscFrontImageStatus}
-                backImageStatus={flipDiscBackImageStatus}
-              />
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
+  // Merge pass — Flip Disc ("Children" theme engine) used to live behind its own completely separate
+  // page (own header, own 340px dark panel) via an early return here, so picking a Flip Disc preset
+  // from the shared PresetStrip felt like being dropped into a different, older app. It now shares
+  // the exact same HeaderBar/CanvasToolbar/PresetStrip/InspectorShell shell as Kinetic below —
+  // `engineMode` only swaps which canvas renders and which fields those shell components show/bind
+  // to. The Flip Disc render engine itself (FlipDiscCanvas, flipDiscGL.ts) is untouched.
+  const isFlipDisc = engineMode === 'flip_disc';
+  const flipDiscPresetName = FLIP_DISC_PRESETS.find((p) => p.id === flipDiscPresetId)?.name;
 
   return (
     <div className="w-screen h-screen flex flex-col overflow-hidden select-none" style={{ background: 'var(--bg)' }}>
       {/* Redesign V1-B layout (spec section 3): new header, canvas card + floating toolbar, preset
           strip below canvas, inspector card + icon rail on the right. */}
       <HeaderBar
+        engineMode={isFlipDisc ? 'flip_disc' : 'kinetic'}
         state={state}
         onUpdateState={handleUpdateState}
         onToggleControls={() => setIsControlsOpen((v) => !v)}
         isControlsOpen={isControlsOpen}
-        canUndo={canUndo}
-        canRedo={canRedo}
+        canUndo={!isFlipDisc && canUndo}
+        canRedo={!isFlipDisc && canRedo}
         onUndo={handleUndo}
         onRedo={handleRedo}
+        flipDiscPresetName={flipDiscPresetName}
+        flipDiscTransparentBg={flipDiscTransparentBg}
+        onToggleFlipDiscTransparentBg={() => setFlipDiscTransparentBg((v) => !v)}
+        onExportFlipDiscPNG={() => flipDiscExportRef.current?.()}
       />
 
       <div className="flex-1 flex overflow-hidden gap-4 p-4 min-h-0">
         <div className="flex-1 min-w-0 flex flex-col gap-3.5 min-h-0">
           <div className="flex-1 relative min-h-0">
-            <CanvasToolbar state={state} onUpdateState={handleUpdateState} fps={fps} dotCount={dotCount} />
-            <KineticCanvas state={state} onUpdateState={handleUpdateState} onFpsUpdate={handleFpsUpdate} />
+            <CanvasToolbar
+              engineMode={isFlipDisc ? 'flip_disc' : 'kinetic'}
+              state={state}
+              onUpdateState={handleUpdateState}
+              fps={fps}
+              dotCount={dotCount}
+              flipDiscPlaying={flipDiscPlaying}
+              onToggleFlipDiscPlaying={() => setFlipDiscPlaying((v) => !v)}
+              flipDiscFps={flipDiscFps}
+              flipDiscTileCount={flipDiscTileCount}
+            />
+            {isFlipDisc ? (
+              <FlipDiscCanvas
+                config={flipDiscConfig}
+                isPlaying={flipDiscPlaying}
+                transparentBg={flipDiscTransparentBg}
+                onFpsUpdate={handleFlipDiscFpsUpdate}
+                exportRequestRef={flipDiscExportRef}
+                imageActionsRef={flipDiscImageActionsRef}
+                onImageStatus={handleFlipDiscImageStatus}
+              />
+            ) : (
+              <KineticCanvas state={state} onUpdateState={handleUpdateState} onFpsUpdate={handleFpsUpdate} />
+            )}
           </div>
           <PresetStrip
             state={state}
@@ -278,6 +269,7 @@ export default function App() {
                          lg:static lg:w-[400px] lg:h-auto lg:rounded-[var(--radius-card)] lg:z-auto lg:shrink-0"
             >
               <InspectorShell
+                engineMode={isFlipDisc ? 'flip_disc' : 'kinetic'}
                 state={state}
                 onUpdateState={handleUpdateState}
                 onSelectPreset={handleSelectPreset}
@@ -287,6 +279,12 @@ export default function App() {
                 onRestoreHistory={handleRestoreHistory}
                 onClearHistory={clearHistory}
                 onRemoveHistoryEntry={removeEntry}
+                flipDiscConfig={flipDiscConfig}
+                flipDiscPresetId={flipDiscPresetId}
+                onUpdateFlipDiscConfig={handleUpdateFlipDiscConfig}
+                flipDiscImageActionsRef={flipDiscImageActionsRef}
+                flipDiscFrontImageStatus={flipDiscFrontImageStatus}
+                flipDiscBackImageStatus={flipDiscBackImageStatus}
               />
             </div>
           </>

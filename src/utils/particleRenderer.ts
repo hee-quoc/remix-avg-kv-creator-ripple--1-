@@ -84,7 +84,17 @@ export function getCachedGridPoints(
   if (isRadial) {
     const cx = originX * width;
     const cy = originY * height;
-    const maxR = Math.sqrt(width * width + height * height);
+    // Only need rings out to the farthest canvas corner from the actual origin — not the blanket
+    // full diagonal, which (for the common centered origin) generates ~4x the necessary rings/points,
+    // ~75% of them off-canvas. Those extra points were always invisible on screen (Canvas2D naturally
+    // clips draws outside its own bounds) but got fully serialized into every SVG export, bloating
+    // file size for no visual gain.
+    const maxR = Math.max(
+      Math.hypot(cx, cy),
+      Math.hypot(width - cx, cy),
+      Math.hypot(cx, height - cy),
+      Math.hypot(width - cx, height - cy)
+    );
     const ringSpacing = Math.max(3, density);
     const numRings = Math.ceil(maxR / ringSpacing);
 
