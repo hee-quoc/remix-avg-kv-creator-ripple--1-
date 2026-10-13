@@ -31,10 +31,10 @@ const PRESET_PALETTES = [
 ];
 
 const DISTRIBUTION_MODES: { id: MultiColorDistribution; label: string; desc: string }[] = [
-  { id: 'palette_list', label: 'SEQUENTIAL', desc: 'Rhythmic alternating grid pattern' },
-  { id: 'random', label: 'RANDOM HASH', desc: 'Deterministic scattered particle seed' },
-  { id: 'grouped', label: 'COLUMNS / GROUPED', desc: 'Vertical ticker market clusters' },
-  { id: 'gradient_based', label: 'WAVE ENERGY', desc: 'Color shifts with local wave amplitude' }
+  { id: 'palette_list', label: 'Tuần tự', desc: 'Lưới lặp lại theo nhịp' },
+  { id: 'random', label: 'Hash ngẫu nhiên', desc: 'Hạt rải tất định theo seed' },
+  { id: 'grouped', label: 'Cột / nhóm', desc: 'Cụm dạng ticker theo cột dọc' },
+  { id: 'gradient_based', label: 'Năng lượng sóng', desc: 'Màu đổi theo biên độ sóng cục bộ' }
 ];
 
 export const MultiColorDotControls: React.FC<MultiColorDotControlsProps> = ({
@@ -106,34 +106,33 @@ export const MultiColorDotControls: React.FC<MultiColorDotControlsProps> = ({
   };
 
   return (
-    <div className="p-3 bg-[#0a0f18] border border-[#1e293b] rounded-lg space-y-3 font-mono">
-      {/* Header with Enable Switch */}
-      <div className="flex items-center justify-between border-b border-[#1e293b] pb-2">
+    <div className="p-3 rounded-[var(--radius-input)] border space-y-3" style={{ background: 'var(--surface-2)', borderColor: 'var(--border)', fontFamily: 'var(--font-ui)' }}>
+      <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: 'var(--border)' }}>
         <div className="flex items-center space-x-2">
-          <Palette className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="text-[11px] font-bold text-white uppercase tracking-wider">
-            MULTI-COLOR DOT SYSTEM
+          <Palette className="w-3.5 h-3.5" style={{ color: 'var(--modified-ink)' }} />
+          <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--ink)' }}>
+            Hệ thống đa màu
           </span>
         </div>
         <button
           type="button"
           onClick={handleToggle}
-          className={`px-2.5 py-1 rounded text-[9px] font-bold uppercase border transition-colors ${
+          className="px-2.5 py-1 rounded-[var(--radius-pill)] text-[9px] font-bold uppercase border transition-colors"
+          style={
             isEnabled
-              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-[0_0_8px_rgba(16,185,129,0.3)]'
-              : 'bg-[#121218] text-[#888] border-[#333]'
-          }`}
+              ? { background: 'var(--modified-bg)', color: 'var(--modified-ink)', borderColor: 'var(--modified)' }
+              : { background: 'var(--chip)', color: 'var(--muted)', borderColor: 'var(--border)' }
+          }
         >
-          {isEnabled ? 'ACTIVE' : 'OFF'}
+          {isEnabled ? 'Bật' : 'Tắt'}
         </button>
       </div>
 
       {isEnabled && (
         <>
-          {/* Preset Palettes */}
           <div>
-            <label className="block text-[#888888] mb-1 text-[10px] uppercase tracking-wider">
-              CURATED MULTI-COLOR PALETTES
+            <label className="block mb-1 text-[10px] uppercase tracking-wider" style={{ color: 'var(--muted)' }}>
+              Bảng màu dựng sẵn
             </label>
             <div className="grid grid-cols-1 gap-1.5">
               {PRESET_PALETTES.map((pal) => (
@@ -141,15 +140,16 @@ export const MultiColorDotControls: React.FC<MultiColorDotControlsProps> = ({
                   key={pal.name}
                   type="button"
                   onClick={() => handleSelectPreset(pal.colors)}
-                  className="p-1.5 rounded bg-[#111622] hover:bg-[#182030] border border-[#223048] flex items-center justify-between text-left transition-colors"
+                  className="p-1.5 rounded-[var(--radius-input)] border flex items-center justify-between text-left transition-colors"
+                  style={{ background: 'var(--chip)', borderColor: 'var(--border)' }}
                 >
-                  <span className="text-[9.5px] text-[#cbd5e1]">{pal.name}</span>
+                  <span className="text-[9.5px]" style={{ color: 'var(--ink-2)' }}>{pal.name}</span>
                   <div className="flex items-center space-x-1">
                     {pal.colors.map((c, i) => (
                       <div
                         key={i}
-                        className="w-2.5 h-2.5 rounded-full border border-black/40"
-                        style={{ backgroundColor: c }}
+                        className="w-2.5 h-2.5 rounded-full border"
+                        style={{ backgroundColor: c, borderColor: 'var(--border-strong)' }}
                       />
                     ))}
                   </div>
@@ -158,10 +158,9 @@ export const MultiColorDotControls: React.FC<MultiColorDotControlsProps> = ({
             </div>
           </div>
 
-          {/* Distribution Mode */}
           <div>
-            <label className="block text-[#888888] mb-1 text-[10px] uppercase tracking-wider">
-              COLOR DISTRIBUTION LOGIC
+            <label className="block mb-1 text-[10px] uppercase tracking-wider" style={{ color: 'var(--muted)' }}>
+              Logic phân phối màu
             </label>
             <div className="grid grid-cols-2 gap-1.5">
               {DISTRIBUTION_MODES.map((mode) => (
@@ -174,33 +173,34 @@ export const MultiColorDotControls: React.FC<MultiColorDotControlsProps> = ({
                       style: { ...prev.style, multiColorDistribution: mode.id }
                     }))
                   }
-                  className={`p-1.5 rounded border text-left font-mono transition-colors ${
+                  className="p-1.5 rounded-[var(--radius-input)] border text-left transition-colors"
+                  style={
                     currentDistribution === mode.id
-                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold shadow-[0_0_8px_rgba(16,185,129,0.2)]'
-                      : 'bg-[#111622] border-[#223048] text-[#888] hover:text-white'
-                  }`}
+                      ? { background: 'var(--modified-bg)', borderColor: 'var(--modified)', color: 'var(--modified-ink)' }
+                      : { background: 'var(--chip)', borderColor: 'var(--border)', color: 'var(--muted)' }
+                  }
                 >
-                  <span className="block text-[9px] font-bold uppercase">{mode.label}</span>
-                  <span className="text-[7.5px] opacity-75 block">{mode.desc}</span>
+                  <span className="block text-[9.5px] font-bold uppercase">{mode.label}</span>
+                  <span className="text-[8px] opacity-75 block">{mode.desc}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Active Palette Chips */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-[#888888] text-[10px] uppercase tracking-wider">
-                CUSTOMIZE PALETTE SWATCHES ({currentPalette.length}/8)
+              <label className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--muted)' }}>
+                Tùy chỉnh mẫu màu ({currentPalette.length}/8)
               </label>
               {currentPalette.length < 8 && (
                 <button
                   type="button"
                   onClick={handleAddColor}
-                  className="flex items-center space-x-1 text-[9px] text-emerald-400 hover:text-emerald-300"
+                  className="flex items-center space-x-1 text-[9px]"
+                  style={{ color: 'var(--modified-ink)' }}
                 >
                   <Plus className="w-2.5 h-2.5" />
-                  <span>ADD COLOR</span>
+                  <span>Thêm màu</span>
                 </button>
               )}
             </div>
@@ -209,7 +209,8 @@ export const MultiColorDotControls: React.FC<MultiColorDotControlsProps> = ({
               {currentPalette.map((color, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center space-x-1 bg-[#111622] border border-[#223048] p-1 rounded group"
+                  className="flex items-center space-x-1 p-1 rounded-[var(--radius-input)] border"
+                  style={{ background: 'var(--chip)', borderColor: 'var(--border)' }}
                 >
                   <input
                     type="color"
@@ -217,12 +218,13 @@ export const MultiColorDotControls: React.FC<MultiColorDotControlsProps> = ({
                     onChange={(e) => handleColorChange(idx, e.target.value)}
                     className="w-4 h-4 rounded cursor-pointer border-0 p-0 bg-transparent"
                   />
-                  <span className="text-[9px] text-[#cbd5e1] font-mono uppercase">{color}</span>
+                  <span className="text-[9px] uppercase" style={{ color: 'var(--ink-2)', fontFamily: 'var(--font-mono)' }}>{color}</span>
                   {currentPalette.length > 2 && (
                     <button
                       type="button"
                       onClick={() => handleRemoveColor(idx)}
-                      className="text-gray-500 hover:text-rose-400 pl-1"
+                      className="pl-1"
+                      style={{ color: 'var(--muted)' }}
                     >
                       <Trash2 className="w-2.5 h-2.5" />
                     </button>

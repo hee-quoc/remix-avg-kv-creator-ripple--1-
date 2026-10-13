@@ -7,6 +7,11 @@ export const FLIP_DISC_PRESETS: FlipDiscPreset[] = [
     category: 'Children',
     description:
       'Prismatic flip-circle field — teal and burnt-orange discs flipping in a real 3D iridescent shimmer, rippling outward from the center.',
+    // Redesign V1-B — one of the pitch deck's curated presets (spec section 6.2, row 5). The spec's
+    // own example quick controls (text.content, palette.id, wave.speed...) don't apply to Flip Disc —
+    // it has no text/wave fields — so these use the real equivalent Flip Disc dials instead.
+    pinned: true,
+    quickControls: ['flipDisc.discRadius', 'flipDisc.frontColor', 'flipDisc.backColor', 'flipDisc.flipSpeed', 'flipDisc.rippleDelay'],
     config: { ...DEFAULT_FLIP_DISC_CONFIG }
   },
   {

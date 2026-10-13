@@ -9,10 +9,10 @@ interface DynamicThicknessControlsProps {
 }
 
 const MODES: { id: ThicknessBehaviorMode; name: string; desc: string }[] = [
-  { id: 'uniform', name: 'UNIFORM', desc: 'All waves share the same thickness' },
-  { id: 'radial_gradient', name: 'RADIAL GRADIENT', desc: 'Thickness changes from center to edge' },
-  { id: 'random', name: 'RANDOM', desc: 'Each wave gets a different deterministic thickness' },
-  { id: 'animated', name: 'ANIMATED', desc: 'Thickness oscillates continuously between min/max' }
+  { id: 'uniform', name: 'Đều', desc: 'Mọi sóng dùng cùng một độ dày' },
+  { id: 'radial_gradient', name: 'Gradient hướng tâm', desc: 'Độ dày thay đổi từ tâm ra viền' },
+  { id: 'random', name: 'Ngẫu nhiên', desc: 'Mỗi sóng có độ dày tất định khác nhau' },
+  { id: 'animated', name: 'Có chuyển động', desc: 'Độ dày dao động liên tục giữa min/max' }
 ];
 
 /**
@@ -48,8 +48,8 @@ export const DynamicThicknessControls: React.FC<DynamicThicknessControlsProps> =
   ) => (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <label className="text-[#888] text-[10px] uppercase">{label}</label>
-        <span className="text-[#00F0FF] text-[10px] font-bold">
+        <label className="text-[10px] uppercase" style={{ color: 'var(--muted)' }}>{label}</label>
+        <span className="text-[10px] font-bold" style={{ color: 'var(--modified-ink)' }}>
           {value.toFixed(decimals)}
           {unit}
         </span>
@@ -61,7 +61,8 @@ export const DynamicThicknessControls: React.FC<DynamicThicknessControlsProps> =
         step={step}
         value={value}
         onChange={(e) => updateDT({ [field]: parseFloat(e.target.value) } as Partial<DynamicThicknessConfig>)}
-        className="w-full h-[2px] bg-[#222] appearance-none cursor-pointer accent-[#00F0FF]"
+        className="w-full h-[2px] appearance-none cursor-pointer"
+        style={{ background: 'var(--track)', accentColor: 'var(--modified)' }}
       />
     </div>
   );
@@ -71,37 +72,37 @@ export const DynamicThicknessControls: React.FC<DynamicThicknessControlsProps> =
   const showRandomness = dt.mode === 'animated' || dt.mode === 'random';
 
   return (
-    <div className="space-y-3 p-3 bg-[#0a0a0d] border border-[#222] rounded-lg font-mono">
-      <div className="flex items-center justify-between pb-1 border-b border-[#222]">
-        <div className="flex items-center space-x-2 text-[#00F0FF]">
+    <div className="space-y-3 p-3 rounded-[var(--radius-input)] border" style={{ background: 'var(--surface-2)', borderColor: 'var(--border)', fontFamily: 'var(--font-ui)' }}>
+      <div className="flex items-center justify-between pb-1 border-b" style={{ borderColor: 'var(--border)' }}>
+        <div className="flex items-center space-x-2" style={{ color: 'var(--modified-ink)' }}>
           <Layers className="w-3.5 h-3.5" />
-          <span className="text-[11px] font-bold uppercase">DYNAMIC VISUAL THICKNESS</span>
+          <span className="text-[11px] font-bold uppercase">Độ dày trực quan động</span>
         </div>
         <button
           type="button"
           onClick={() => updateDT({ enabled: !dt.enabled })}
-          className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase border transition-all ${
+          className="text-[9px] px-2 py-0.5 rounded font-bold uppercase border transition-colors"
+          style={
             dt.enabled
-              ? 'bg-[#00F0FF]/20 text-[#00F0FF] border-[#00F0FF]/50'
-              : 'bg-[#181818] text-[#777] border-[#333]'
-          }`}
+              ? { background: 'var(--modified-bg)', color: 'var(--modified-ink)', borderColor: 'var(--modified)' }
+              : { background: 'var(--chip)', color: 'var(--muted)', borderColor: 'var(--border)' }
+          }
         >
-          {dt.enabled ? 'ENABLED' : 'DISABLED'}
+          {dt.enabled ? 'Bật' : 'Tắt'}
         </button>
       </div>
 
-      <p className="text-[9px] text-[#888] font-sans leading-relaxed">
-        Gives each concentric wave its own independent visual width — e.g. Wave 1 thick, Wave 2 thin,
-        Wave 3 medium — ported from the 3D Radial Wave's ring thickness system. This is the width of the
-        wave band itself, not particle size or amplitude. Works with every material since it modulates
-        the shared wave calculation. Spatial Frequency (wave spacing) stays fully independent — unless
-        Advanced Frequency Control above is set to Thickness Only / Combined, which also nudges the
-        Thickness Frequency slider below.
+      <p className="text-[10px] leading-relaxed" style={{ color: 'var(--muted)' }}>
+        Cho mỗi sóng đồng tâm có độ rộng trực quan riêng — ví dụ Sóng 1 dày, Sóng 2 mỏng, Sóng 3 trung
+        bình — chuyển thể từ hệ thống độ dày vòng của Radial Wave 3D. Đây là độ rộng của dải sóng, không
+        phải kích thước hạt hay biên độ. Hoạt động với mọi material vì nó điều chỉnh phép tính sóng
+        chung. Frequency không gian (khoảng cách sóng) vẫn hoàn toàn độc lập — trừ khi Advanced Frequency
+        Control ở trên đặt là Thickness Only / Combined, khi đó sẽ tác động thêm vào slider Thickness
+        Frequency bên dưới.
       </p>
 
       {dt.enabled && (
         <>
-          {/* Behavior Mode selector */}
           <div className="grid grid-cols-2 gap-1.5">
             {MODES.map((m) => (
               <button
@@ -109,40 +110,41 @@ export const DynamicThicknessControls: React.FC<DynamicThicknessControlsProps> =
                 type="button"
                 onClick={() => updateDT({ mode: m.id })}
                 title={m.desc}
-                className={`p-1.5 rounded border text-left transition-colors ${
+                className="p-1.5 rounded-[var(--radius-input)] border text-left transition-colors"
+                style={
                   dt.mode === m.id
-                    ? 'bg-[#00F0FF]/20 border-[#00F0FF] text-[#00F0FF] font-bold'
-                    : 'bg-[#121212] border-[#222] text-[#888] hover:text-white'
-                }`}
+                    ? { background: 'var(--modified-bg)', borderColor: 'var(--modified)', color: 'var(--modified-ink)' }
+                    : { background: 'var(--chip)', borderColor: 'var(--border)', color: 'var(--muted)' }
+                }
               >
-                <span className="block text-[9px] font-bold uppercase">{m.name}</span>
+                <span className="block text-[9.5px] font-bold uppercase">{m.name}</span>
               </button>
             ))}
           </div>
 
           {dt.mode === 'uniform' &&
-            slider('BASE THICKNESS', dt.baseThickness, 'baseThickness', 0.1, 4, 0.05, 'x', 2)}
+            slider('Độ dày cơ bản', dt.baseThickness, 'baseThickness', 0.1, 4, 0.05, 'x', 2)}
 
           {showMinMax && (
             <div className="grid grid-cols-2 gap-3">
-              {slider('MINIMUM THICKNESS', dt.minThickness, 'minThickness', 0.05, 3, 0.05, 'x', 2)}
-              {slider('MAXIMUM THICKNESS', dt.maxThickness, 'maxThickness', 0.1, 4, 0.05, 'x', 2)}
+              {slider('Độ dày tối thiểu', dt.minThickness, 'minThickness', 0.05, 3, 0.05, 'x', 2)}
+              {slider('Độ dày tối đa', dt.maxThickness, 'maxThickness', 0.1, 4, 0.05, 'x', 2)}
             </div>
           )}
 
           {showAnimated && (
             <>
               <div className="grid grid-cols-2 gap-3">
-                {slider('THICKNESS FREQUENCY', dt.thicknessFrequency, 'thicknessFrequency', 0, 5, 0.1, '', 1)}
-                {slider('ANIMATION SPEED', dt.animSpeed, 'animSpeed', 0, 4, 0.05, 'x', 2)}
+                {slider('Tần số độ dày', dt.thicknessFrequency, 'thicknessFrequency', 0, 5, 0.1, '', 1)}
+                {slider('Tốc độ hoạt ảnh', dt.animSpeed, 'animSpeed', 0, 4, 0.05, 'x', 2)}
               </div>
-              {slider('PHASE OFFSET', dt.phaseOffset, 'phaseOffset', -6.3, 6.3, 0.1, ' rad', 1)}
+              {slider('Lệch pha', dt.phaseOffset, 'phaseOffset', -6.3, 6.3, 0.1, ' rad', 1)}
             </>
           )}
 
           {showRandomness &&
             slider(
-              dt.mode === 'animated' ? 'THICKNESS RANDOMNESS (COMBINE)' : 'THICKNESS RANDOMNESS',
+              dt.mode === 'animated' ? 'Độ ngẫu nhiên độ dày (kết hợp)' : 'Độ ngẫu nhiên độ dày',
               dt.randomness,
               'randomness',
               0,
@@ -152,16 +154,16 @@ export const DynamicThicknessControls: React.FC<DynamicThicknessControlsProps> =
               2
             )}
 
-          {/* Audio Thickness Influence */}
-          <div className="pt-2 border-t border-[#1a1a1a] space-y-2">
-            <span className="text-[10px] font-bold uppercase text-white flex items-center gap-1.5">
-              <Activity className="w-3 h-3 text-[#00F0FF]" /> AUDIO THICKNESS INFLUENCE
+          <div className="pt-2 border-t space-y-2" style={{ borderColor: 'var(--border)' }}>
+            <span className="text-[10px] font-bold uppercase flex items-center gap-1.5" style={{ color: 'var(--ink)' }}>
+              <Activity className="w-3 h-3" style={{ color: 'var(--modified-ink)' }} /> Ảnh hưởng âm thanh lên độ dày
             </span>
-            <p className="text-[9px] text-[#666] font-sans leading-relaxed">
-              Bass smoothly increases ring thickness; quiet passages relax it back. Requires Audio
-              Reactivity enabled below — never spawns new rings, only modulates these existing ones.
+            <p className="text-[10px] leading-relaxed" style={{ color: 'var(--muted)' }}>
+              Bass tăng dần độ dày vòng sóng một cách mượt mà; đoạn yên tĩnh sẽ trả lại trạng thái cũ. Cần
+              bật Audio Reactivity bên dưới — không bao giờ sinh thêm vòng mới, chỉ điều chỉnh các vòng
+              hiện có.
             </p>
-            {slider('INFLUENCE AMOUNT', dt.audioThicknessInfluence, 'audioThicknessInfluence', 0, 1, 0.05, '', 2)}
+            {slider('Mức ảnh hưởng', dt.audioThicknessInfluence, 'audioThicknessInfluence', 0, 1, 0.05, '', 2)}
           </div>
         </>
       )}

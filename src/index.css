@@ -1,1 +1,167 @@
 @import "tailwindcss";
+
+/*
+ * Redesign V1-B — Phase P2 design tokens (see docs/redesign spec, section 8).
+ * Additive-only: nothing in the current app reads these yet, so this has zero visual effect until
+ * the new UI components (src/components/ui/) and later phases (P3+) start consuming them.
+ *
+ * Font choice: kept the existing brand fonts (Space Grotesk / JetBrains Mono — already loaded via
+ * index.html, already used as the default content font across presets) rather than switching to
+ * Geist, since the spec's own open question #2 (section 11) hasn't been answered yet. Swapping later
+ * is a one-line change here, not a per-component rewrite, since every new component reads the font
+ * through these two variables rather than hardcoding a family name.
+ */
+:root {
+  --font-ui: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --bg: #f4f5f6;
+  --surface: #ffffff;
+  --surface-2: #fafafa;
+  --border: #e6e8eb;
+  --border-strong: #dfe2e6;
+  --ink: #111111;
+  --ink-2: #374151;
+  --muted: #6b7280;
+  --chip: #f1f2f4;
+  --track: #e6e8eb;
+  --modified: #2563eb;
+  --modified-bg: #dbeafe;
+  --modified-ink: #1e40af;
+  --warn-bg: #fffbeb;
+  --warn-border: #fde68a;
+  --warn-ink: #78350f;
+  --ok: #15803d;
+  --radius-card: 20px;
+  --radius-input: 12px;
+  --radius-pill: 999px;
+  --radius-rail: 12px;
+  --gap: 16px;
+  --shadow-preview: 0 12px 40px rgba(10, 15, 30, 0.18);
+  --shadow-modal: 0 20px 60px rgba(10, 15, 30, 0.18);
+}
+
+/* Follows OS preference automatically when no explicit data-theme is set on <html>. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0b0c0e;
+    --surface: #121417;
+    --surface-2: #17191d;
+    --border: #1f2226;
+    --border-strong: #2c2f35;
+    --ink: #f3f4f6;
+    --ink-2: #d1d5db;
+    --muted: #9ca3af;
+    --chip: #24272c;
+    --track: #22252b;
+    --modified: #60a5fa;
+    --modified-bg: #172554;
+    --modified-ink: #bfdbfe;
+  }
+}
+
+/* Explicit override via the "..." menu toggle (P3+), takes precedence over OS preference. */
+:root[data-theme='dark'] {
+  --bg: #0b0c0e;
+  --surface: #121417;
+  --surface-2: #17191d;
+  --border: #1f2226;
+  --border-strong: #2c2f35;
+  --ink: #f3f4f6;
+  --ink-2: #d1d5db;
+  --muted: #9ca3af;
+  --chip: #24272c;
+  --track: #22252b;
+  --modified: #60a5fa;
+  --modified-bg: #172554;
+  --modified-ink: #bfdbfe;
+}
+
+/* ============================================================================
+ * Redesign V1-B — shared UI primitives (src/components/ui/). Scoped under .kv- so nothing here can
+ * collide with the existing app's own Tailwind-utility-styled controls while both coexist during the
+ * phased rollout.
+ * ========================================================================== */
+
+/* Slider */
+.kv-ctl { display: flex; flex-direction: column; gap: 8px; font-family: var(--font-ui); }
+.kv-ctl-head { display: flex; justify-content: space-between; align-items: center; font-size: 13.5px; color: var(--ink-2); gap: 10px; }
+.kv-ctl-label { display: flex; align-items: center; gap: 6px; }
+.kv-ctl-value { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink); background: transparent; border: none; text-align: right; cursor: pointer; padding: 0; }
+.kv-ctl-value-input { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink); background: transparent; border: none; border-bottom: 1px solid var(--border-strong); text-align: right; width: 72px; padding: 0 0 1px; }
+.kv-ctl-value-input:focus { outline: none; border-bottom-color: var(--modified); }
+.kv-modified-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--modified); display: inline-block; flex: none; }
+
+.kv-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; background: transparent; cursor: pointer; margin: 0; }
+.kv-slider::-webkit-slider-runnable-track {
+  height: 3px; border-radius: 2px;
+  background: linear-gradient(to right, var(--ink) 0%, var(--ink) var(--kv-slider-pct, 0%), var(--track) var(--kv-slider-pct, 0%), var(--track) 100%);
+}
+.kv-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%; background: var(--surface); border: 2px solid var(--ink); margin-top: -6px; box-sizing: border-box; }
+.kv-slider::-moz-range-track { height: 3px; border-radius: 2px; background: var(--track); }
+.kv-slider::-moz-range-progress { height: 3px; border-radius: 2px; background: var(--ink); }
+.kv-slider::-moz-range-thumb { width: 15px; height: 15px; border-radius: 50%; background: var(--surface); border: 2px solid var(--ink); box-sizing: border-box; }
+.kv-slider:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Range slider (2-handle) */
+.kv-range-track { position: relative; height: 18px; }
+.kv-range-track::before { content: ''; position: absolute; left: 0; right: 0; top: 8px; height: 3px; border-radius: 2px; background: var(--track); }
+.kv-range-fill { position: absolute; top: 8px; height: 3px; border-radius: 2px; background: var(--ink); }
+.kv-range-input { position: absolute; left: 0; right: 0; top: 0; -webkit-appearance: none; appearance: none; width: 100%; height: 18px; background: transparent; margin: 0; pointer-events: none; }
+.kv-range-input::-webkit-slider-runnable-track { background: transparent; height: 3px; }
+.kv-range-input::-moz-range-track { background: transparent; height: 3px; }
+.kv-range-input::-webkit-slider-thumb { -webkit-appearance: none; pointer-events: auto; width: 15px; height: 15px; border-radius: 50%; background: var(--surface); border: 2px solid var(--ink); margin-top: -6px; box-sizing: border-box; }
+.kv-range-input::-moz-range-thumb { pointer-events: auto; width: 15px; height: 15px; border-radius: 50%; background: var(--surface); border: 2px solid var(--ink); box-sizing: border-box; }
+
+/* Segmented control */
+.kv-seg { display: inline-flex; background: var(--chip); border-radius: var(--radius-pill); padding: 3px; font-family: var(--font-ui); font-size: 13px; gap: 2px; }
+.kv-seg-item { padding: 7px 14px; border-radius: var(--radius-pill); color: var(--muted); border: none; background: transparent; cursor: pointer; font: inherit; }
+.kv-seg-item.is-on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
+
+/* Toggle (switch) */
+.kv-toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-family: var(--font-ui); font-size: 13.5px; color: var(--ink-2); cursor: pointer; }
+.kv-toggle-row.is-disabled { opacity: 0.45; cursor: not-allowed; }
+.kv-toggle { width: 38px; height: 22px; border-radius: var(--radius-pill); border: none; background: var(--track); position: relative; cursor: pointer; padding: 0; transition: background 0.15s ease; flex: none; }
+.kv-toggle.is-on { background: var(--ink); }
+.kv-toggle:disabled { opacity: 0.45; cursor: not-allowed; }
+.kv-toggle-knob { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--surface); transition: transform 0.15s ease; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); }
+.kv-toggle.is-on .kv-toggle-knob { transform: translateX(16px); }
+
+/* Chip */
+.kv-chip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-ui); font-size: 11.5px; padding: 4px 10px; border-radius: var(--radius-pill); background: var(--chip); color: var(--ink-2); white-space: nowrap; }
+.kv-chip.is-active { background: var(--ink); color: var(--surface); font-weight: 600; }
+.kv-chip.is-clickable { cursor: pointer; }
+.kv-chip-modified { background: var(--modified-bg); color: var(--modified-ink); }
+.kv-chip-warn { background: var(--warn-bg); color: var(--warn-ink); border: 1px solid var(--warn-border); }
+.kv-chip-ok { color: var(--ok); }
+
+/* Pill button */
+.kv-pill {
+  font-family: var(--font-ui); border: 1px solid var(--border-strong); background: var(--surface);
+  border-radius: var(--radius-pill); height: 36px; padding: 0 14px; display: inline-flex; align-items: center;
+  justify-content: center; gap: 8px; font-size: 13px; color: var(--ink); cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.kv-pill:hover { border-color: var(--ink-2); }
+.kv-pill-primary { background: var(--ink); color: var(--surface); border-color: var(--ink); font-weight: 600; }
+.kv-pill-active { background: var(--modified-bg); color: var(--modified-ink); border-color: var(--modified); }
+.kv-pill:disabled { opacity: 0.4; cursor: not-allowed; }
+/* Icon-only square variant (e.g. canvas toolbar's Play/Pause) — overrides the text pill's width/padding. */
+.kv-pill-icon { width: 36px; padding: 0; justify-content: center; }
+
+/* Accordion */
+.kv-accordion { border-top: 1px solid var(--border); }
+.kv-accordion-head {
+  width: 100%; display: flex; align-items: center; gap: 8px; padding: 10px 0; background: none; border: none;
+  cursor: pointer; font-family: var(--font-ui); font-size: 12.5px; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--muted);
+}
+.kv-accordion-chevron { display: inline-flex; transition: transform 0.15s ease; color: var(--muted); }
+.kv-accordion-chevron[data-open='true'] { transform: rotate(180deg); }
+.kv-accordion-title { flex: 1; text-align: left; }
+.kv-accordion-body { padding: 4px 0 14px; display: flex; flex-direction: column; gap: 18px; }
+
+/* Wraps a not-yet-restyled legacy control component embedded inside a redesigned panel (P4) — a
+   clearly-bounded "island" rather than letting its old dark/Tailwind styling clash inline with the
+   new light/dark token system around it. Remove once that component gets its own redesign pass. */
+.kv-legacy-embed { background: #0a0a0a; border: 1px solid #222; border-radius: var(--radius-input); padding: 12px; }

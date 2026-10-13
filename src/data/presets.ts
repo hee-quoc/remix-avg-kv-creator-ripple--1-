@@ -114,68 +114,80 @@ export const PRESETS: Preset[] = [
     id: 'global_pulse',
     name: '01. Global Pulse',
     category: 'News',
-    description: 'Concentric planetary spherical wavefronts radiating worldwide information with full molecular typography and pulsating circular nodes.',
-    formulaDescription: 'Concentric spherical wave propagation; dots form the text and radiate harmonic pulses outwardly through the letterforms.',
+    description: 'Radial dot grid in a deep thermal palette — a heavy pulsing wavefront ripples outward through the letterforms with multi-color nodes.',
+    formulaDescription: 'Radial dot field; a thick inward-biased pulse wave propagates from center, dots form the text and shift through a multi-color palette as the wave passes.',
     compositionMode: 'full_molecule',
     defaultVisualStyle: 'dot_matrix',
     tags: ['Globe', 'Concentric', 'Full Molecule', 'Circular Nodes', 'Pulse'],
+    // Redesign V1-B — one of the pitch deck's curated presets (spec section 6.2, row 1).
+    pinned: true,
+    quickControls: ['font.text', 'style.theme', 'grid.density', 'wave.waveSpeed', 'wave.waveAmplitude', 'grid.maxRadius'],
+    // Hard-set from the test team's own live-tuned state (exported via the HISTORY tab's "Copy
+    // Current Settings" button) — radial grid, heavier wavefront, thermal palette with multi-color.
     config: {
       compositionMode: 'full_molecule',
       activeVisualStyle: 'dot_matrix',
       font: {
-        text: 'GLOBAL\nPULSE',
+        text: 'NEVO',
         fontFamily: 'Space Grotesk',
         fontSize: 140,
         fontWeight: 700,
         letterSpacing: 4,
         lineHeight: 0.95,
         textAlign: 'center',
-        invertText: false
+        invertText: false,
+        maskMode: 'text',
+        maskScale: 2,
+        maskScaleX: 2,
+        maskScaleY: 2
       },
       grid: {
-        gridType: 'square',
-        density: 10,
-        minRadius: 1.0,
-        maxRadius: 6.0,
+        gridType: 'radial',
+        density: 11,
+        minRadius: 2.3,
+        maxRadius: 9.2,
         dotShape: 'circle',
-        sdfThreshold: 0.5,
+        sdfThreshold: 0.52,
         sdfSoftness: 0.8,
-        hideBackgroundDots: false
+        hideBackgroundDots: true
       },
       wave: {
         mode: 'stable',
         pattern: 'circular',
         waveType: 'pulse',
-        waveSpeed: 0.8,
-        waveFrequency: 1.2,
+        waveSpeed: 0.9,
+        waveFrequency: 0.7,
         waveAmplitude: 0.85,
-        waveSoftness: 0.35,
-        frequencyThickness: 1.0,
-        radialThickness: 0.0,
+        waveSoftness: 0.7,
+        frequencyThickness: 2.05,
+        radialThickness: -0.65,
         emphasizeWavefront: false,
         originX: 0.5,
         originY: 0.5,
         vectorDistortion: 0.8,
         blendBack: 0.8,
-        frequencyVariation: 0.3,
-        amplitudeVariation: 0.35,
-        sizeRandomness: 0.3,
+        frequencyVariation: 0.0,
+        amplitudeVariation: 0.0,
+        sizeRandomness: 0.0,
         randomSeed: 101,
         soundReactivity: 0.0
       },
       style: {
-        theme: 'dark_radar',
+        theme: 'thermal',
         visualStyle: 'dot_matrix',
-        dotColor: '#00f0ff',
-        bgColor: '#0a0d14',
-        accentColor: '#38bdf8',
+        dotColor: '#e013fb',
+        bgColor: '#180029',
+        accentColor: '#f43f5e',
         enableColorGradient: true,
         gradientColor: '#818cf8',
         vignette: true,
-        uniformColorBrightness: false,
+        uniformColorBrightness: true,
         showRadarGrid: false,
         radarGridOpacity: 0.18,
-        showEmitterHandle: false
+        showEmitterHandle: false,
+        enableMultiColor: true,
+        multiColorPalette: ['#10b981', '#ef4444', '#06b6d4', '#f59e0b', '#8b5cf6'],
+        multiColorDistribution: 'gradient_based'
       }
     }
   },
@@ -279,6 +291,9 @@ export const PRESETS: Preset[] = [
     compositionMode: 'full_molecule',
     defaultVisualStyle: 'ascii_flow',
     tags: ['ASCII Molecule', 'Binary', 'Encryption', 'Tech Matrix'],
+    // Redesign V1-B — one of the pitch deck's curated presets (spec section 6.2, row 2).
+    pinned: true,
+    quickControls: ['font.text', 'style.theme', 'grid.density', 'wave.waveSpeed', 'wave.waveFrequency'],
     // Hard-set from the user's own live-tuned state (exported via the HISTORY tab's "Copy Current
     // Settings" button) — a denser, finer ASCII flow with a circular in-phase ripple.
     config: {
@@ -498,38 +513,47 @@ export const PRESETS: Preset[] = [
     }
   },
 
-  // 06 — CHAMPIONSHIP WAVE (Sports)
+  // 06 — SCATTER (Sports) — renamed from "Championship Wave" per the pitch deck; hard-set from the
+  // test team's own live-tuned state (exported via the HISTORY tab's "Copy Current Settings" button).
   {
     id: 'championship_wave',
-    name: '06. Championship Wave',
+    name: '06. Scatter',
     category: 'Sports',
-    description: 'Stadium-scale concentric wave dynamics and rhythmic athletic surge patterns.',
-    formulaDescription: 'Concentric surges pulsating with athletic energy, optimized for visual stability with standalone internal dynamics.',
+    description: 'Loose hexagonal dot scatter in cyan — a turbulent pulse wave with a dragged-off-center origin and heavy frequency/amplitude variation for an organic, bursting energy.',
+    formulaDescription: 'Sparse hexagonal grid; a circular pulse wave with high frequency/amplitude/size variation radiates from an off-center origin, radar rings and emitter handle visible.',
     compositionMode: 'full_molecule',
     defaultVisualStyle: 'dot_matrix',
-    tags: ['Sports', 'Stadium Wave', 'Athletic Energy', 'Surge'],
+    tags: ['Scatter', 'Hexagonal', 'Pulse', 'Organic'],
+    // Redesign V1-B — one of the pitch deck's curated presets (spec section 6.2, row 3).
+    pinned: true,
+    legacyName: '06. Championship Wave',
+    quickControls: ['font.text', 'style.theme', 'grid.gridType', 'wave.waveSpeed', 'wave.waveAmplitude'],
     config: {
       compositionMode: 'full_molecule',
       activeVisualStyle: 'dot_matrix',
       font: {
-        text: 'GOLDEN\nVICTORY',
+        text: 'NEVO',
         fontFamily: 'Anton',
-        fontSize: 155,
+        fontSize: 177,
         fontWeight: 400,
         letterSpacing: 3,
         lineHeight: 0.9,
         textAlign: 'center',
-        invertText: false
+        invertText: false,
+        maskMode: 'text',
+        maskScale: 3,
+        maskScaleX: 3,
+        maskScaleY: 3
       },
       grid: {
         gridType: 'hexagonal',
-        density: 9,
+        density: 5,
         minRadius: 1.0,
         maxRadius: 6.5,
         dotShape: 'circle',
         sdfThreshold: 0.5,
         sdfSoftness: 0.8,
-        hideBackgroundDots: false
+        hideBackgroundDots: true
       },
       wave: {
         mode: 'flow',
@@ -541,8 +565,8 @@ export const PRESETS: Preset[] = [
         waveSoftness: 0.35,
         vectorDistortion: 1.3,
         blendBack: 0.72,
-        originX: 0.5,
-        originY: 0.48,
+        originX: 0.4875185333029197,
+        originY: 0.4486416903409091,
         frequencyVariation: 0.5,
         amplitudeVariation: 0.6,
         sizeRandomness: 0.45,
@@ -551,11 +575,11 @@ export const PRESETS: Preset[] = [
         soundSensitivity: 1.0
       },
       style: {
-        theme: 'cyber_freq',
+        theme: 'dark_radar',
         visualStyle: 'dot_matrix',
-        dotColor: '#eab308',
-        bgColor: '#0f051d',
-        accentColor: '#f97316',
+        dotColor: '#00f0ff',
+        bgColor: '#0a0d14',
+        accentColor: '#38bdf8',
         enableColorGradient: true,
         gradientColor: '#ec4899',
         vignette: true,
@@ -579,6 +603,11 @@ export const PRESETS: Preset[] = [
     compositionMode: 'full_molecule',
     defaultVisualStyle: 'stitch_craft',
     tags: ['Culture', 'Stitch', 'Embroidery', 'Textile', 'Craft'],
+    // Redesign V1-B — one of the pitch deck's curated presets (spec section 6.2, row 4). Spec's own
+    // example quick controls ("stitch.length*", "stitch.tension*") map to the real stitch-material
+    // fields grid.stitchLength / grid.stitchSoftness (closest existing equivalent to "tension").
+    pinned: true,
+    quickControls: ['font.text', 'style.theme', 'grid.stitchLength', 'grid.stitchSoftness', 'grid.density', 'wave.waveSpeed'],
     config: {
       compositionMode: 'full_molecule',
       activeVisualStyle: 'stitch_craft',
@@ -965,42 +994,49 @@ export const PRESETS: Preset[] = [
     }
   },
 
-  // 11 — PIXEL TICKER (News) — duplicate of Global Wire's Typography Box Material + ripple
-  // mechanics, reskinned as a glowing LED stock-ticker board per the user's reference image.
+  // 11 — PIXEL TICKER (News) — originally a duplicate of Global Wire's Typography Box Material +
+  // ripple mechanics reskinned as an LED stock-ticker board. The test team has since re-tuned it into
+  // an extruded-block wordmark on a light Swiss-editorial background — hard-set below from their own
+  // live-tuned state (exported via the HISTORY tab's "Copy Current Settings" button). The original
+  // typographyBox/custom-SVG-layer config is kept (not currently the active dotShape, but it's real
+  // tuned content the test team built up — preserved in case the shape gets switched back to it).
   {
     id: 'pixel_ticker',
     name: '11. Pixel Ticker',
     category: 'News',
-    description: 'A glowing multicolor LED stock-ticker board — the same word-box grid and ripple engine as Global Wire, reskinned pixel-style.',
-    formulaDescription: 'Packed sharp-cornered typography boxes (existing Typography Box Material, textColorMode "palette") sampled by the shared wave engine — same mechanics as Global Wire, chrome-free glowing text instead of filled pills.',
+    description: 'A large extruded-block wordmark on a light Swiss-editorial field, lit by a slow circular ripple.',
+    formulaDescription: 'Sparse square grid of extruded 3D blocks (dotShape "extruded_block") masked to the text, sampled by the shared circular wave engine.',
     compositionMode: 'full_molecule',
     defaultVisualStyle: 'dot_matrix',
-    tags: ['News', 'Pixel', 'LED', 'Ticker', 'Ripple'],
+    tags: ['News', 'Extruded', 'Editorial', 'Ripple'],
     config: {
       compositionMode: 'full_molecule',
       activeVisualStyle: 'dot_matrix',
       font: {
-        text: 'STOCK\nTICKER',
+        text: 'MEVO',
         fontFamily: 'Press Start 2P',
-        fontSize: 10,
+        fontSize: 269,
         fontWeight: 400,
         letterSpacing: 2,
-        lineHeight: 1.15,
+        lineHeight: 1.05,
         textAlign: 'center',
         invertText: false,
-        maskMode: 'text'
+        maskMode: 'text',
+        maskScale: 0.75,
+        maskScaleX: 0.75,
+        maskScaleY: 0.75
       },
       grid: {
         gridType: 'square',
-        density: 10,
+        density: 9,
         minRadius: 1,
         maxRadius: 5.5,
-        dotShape: 'typography_box',
+        dotShape: 'extruded_block',
         sdfThreshold: 0.5,
         sdfSoftness: 0.8,
         hideBackgroundDots: false,
-        // Same material/mechanics as Global Wire (id: global_wire) — only content, geometry, and
-        // color source change: sharp corners, no fill/outline, per-box palette-colored glyphs.
+        // Not the active dotShape right now, but real tuned content the test team built up earlier —
+        // preserved so switching dotShape back to 'typography_box' doesn't lose it.
         typographyBox: {
           words: [
             'FG▼132.99', 'GJHL▲59.41', 'KNHF▲55.23', 'ZCFG▼41.20',
@@ -1008,39 +1044,71 @@ export const PRESETS: Preset[] = [
             'XPLR▲23.11', 'VNTK▼77.65', 'HDRO▲9.42', 'BLTZ▼142.30',
             'OMEGA▲301.05', 'KRXP▼18.77', 'DYNM▲64.20', 'FUSE▼36.84'
           ],
-          colorPalette: ['#7429ff', '#39FF14', '#ff1a1a', '#ffd500', '#7300ff'],
+          colorPalette: ['#7429ff', '#44db29', '#6385ca', '#5c5c5c', '#b67aff'],
           fontFamily: 'Press Start 2P',
           fontSize: 20,
-          boxHeight: 117,
-          horizontalPadding: 16,
-          marginX: 20,
-          marginY: 0,
-          cornerRadius: 0,
-          cornerRadiusMode: 'uniform',
+          boxHeight: 40,
+          horizontalPadding: 8,
+          marginX: 36,
+          marginY: 6,
+          cornerRadius: 28,
+          cornerRadiusMode: 'random',
           cornerRadiusMin: 0,
           cornerRadiusMax: 0,
-          filledRatio: 0,
-          strokeColor: '#000000',
+          filledRatio: 1,
+          strokeColor: '#ffffff',
           textColor: '#00FF6A',
           textColorMode: 'palette',
           strokeWidth: 0,
-          // Same hidden-until-the-ripple-hits reveal as Global Wire — text lights up in a clean
-          // circular wave radiating out from center, not a static always-on glow.
-          baseOpacity: 0.0,
+          baseOpacity: 0.82,
           minOpacity: 0.0,
-          maxOpacity: 1.0,
+          maxOpacity: 0.9,
           opacityInfluence: 0.92,
-          opacitySoftness: 0.5,
+          opacitySoftness: 1,
           invertOpacity: false,
-          // Static "unlit LED pixels" grid behind the ticker text, like a real dot-matrix board.
-          ledBackdrop: true,
+          ledBackdrop: false,
           ledBackdropColor: '#0b3d24',
           ledBackdropOpacity: 0.55,
           ledBackdropSpacing: 16,
           ledBackdropDotSize: 1.6
-        }
+        },
+        // Also not the active dotShape right now (needs dotShape 'custom_svg') — same reasoning as
+        // typographyBox above, preserved rather than discarded.
+        customSvgDistribution: 'cycle',
+        customSvgLayers: [
+          {
+            id: 'layer_star',
+            name: '4-Point Star',
+            svgXml: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 0L14.5 9.5L24 12L14.5 14.5L12 24L9.5 14.5L0 12L9.5 9.5Z"/></svg>',
+            recolorMode: 'theme',
+            scale: 1,
+            rotationOffset: 0,
+            opacity: 1,
+            enabled: true
+          },
+          {
+            id: 'layer_cross',
+            name: 'Crosshair Plus',
+            svgXml: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M11 0h2v9h9v2h-9v9h-2v-9H2v-2h9V0z"/></svg>',
+            recolorMode: 'custom',
+            customColor: '#00F0FF',
+            scale: 0.8,
+            rotationOffset: 45,
+            opacity: 0.85,
+            enabled: true
+          },
+          {
+            id: 'layer_diamond',
+            name: 'Diamond Sparkle',
+            svgXml: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2L22 12L12 22L2 12Z"/></svg>',
+            recolorMode: 'theme',
+            scale: 1.1,
+            rotationOffset: 0,
+            opacity: 0.9,
+            enabled: false
+          }
+        ]
       },
-      // Same in-phase concentric ripple tuning as Global Wire (waveSpeed nudged up slightly).
       wave: {
         mode: 'flow',
         pattern: 'circular',
@@ -1062,17 +1130,15 @@ export const PRESETS: Preset[] = [
         randomSeed: 2024
       },
       style: {
-        theme: 'blueprint_cyan',
+        theme: 'swiss_editorial',
         visualStyle: 'dot_matrix',
-        dotColor: '#00FF6A',
-        bgColor: '#000000',
-        accentColor: '#00F0FF',
+        dotColor: '#0f172a',
+        bgColor: '#f8fafc',
+        accentColor: '#dc2626',
         enableColorGradient: false,
         gradientColor: '#00F0FF',
         vignette: true,
         uniformColorBrightness: false,
-        // NOTE: showRadarGrid draws concentric radar RINGS + crosshairs, not a dot-matrix grid — the
-        // actual "unlit LED pixels" backdrop is grid.typographyBox.ledBackdrop above.
         showRadarGrid: false,
         radarGridOpacity: 0.12,
         showEmitterHandle: false

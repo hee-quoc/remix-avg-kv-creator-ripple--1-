@@ -764,6 +764,14 @@ export interface Preset {
   compositionMode?: CompositionMode;
   defaultVisualStyle?: VisualStyleId;
   tags?: string[];
+  // Redesign V1-B (control registry / preset strip) — additive-only, optional so every existing
+  // preset keeps working untouched until explicitly set. `pinned` marks the small curated "pitch" set
+  // shown first in the new preset strip; `quickControls` lists the 4-6 control-registry ids surfaced
+  // in the inspector's "Quick tune" tab for this preset; `legacyName` keeps the pre-redesign display
+  // name around for lookup/reference after a preset is renamed.
+  pinned?: boolean;
+  quickControls?: string[];
+  legacyName?: string;
   config: {
     font?: Partial<FontConfig>;
     grid?: Partial<GridConfig>;

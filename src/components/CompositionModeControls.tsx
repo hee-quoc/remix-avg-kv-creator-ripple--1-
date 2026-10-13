@@ -17,50 +17,53 @@ export const CompositionModeControls: React.FC<CompositionModeControlsProps> = (
     {
       id: 'full_molecule',
       title: 'Full Molecule',
-      subtitle: 'Wave halftone dots mask the typography shape directly.'
+      subtitle: 'Hạt sóng halftone che trực tiếp theo hình chữ.'
     },
     {
       id: 'molecule_wave_only',
       title: 'Molecule Wave Only',
-      subtitle: 'Pure wave field molecules across viewport + crisp text layer.'
+      subtitle: 'Trường hạt sóng phủ toàn khung hình + lớp chữ sắc nét riêng.'
     },
     {
       id: 'editorial_collage',
       title: 'Editorial Collage',
-      subtitle: 'High-contrast editorial layout with layered typographic scales.'
+      subtitle: 'Bố cục editorial tương phản cao với nhiều tầng tỉ lệ chữ.'
     }
   ];
 
   return (
-    <div className="space-y-4 font-mono">
-      {/* Header */}
-      <div className="flex items-center justify-between pb-2 border-b border-[#222]">
+    <div className="space-y-4" style={{ fontFamily: 'var(--font-ui)' }}>
+      <div className="flex items-center justify-between pb-2 border-b" style={{ borderColor: 'var(--border)' }}>
         <div className="flex items-center space-x-2">
-          <Layout className="w-4 h-4 text-[#00F0FF]" />
-          <span className="text-[11px] font-bold uppercase tracking-wider text-white">
-            COMPOSITION ARCHITECTURE
-          </span>
+          <Layout className="w-3.5 h-3.5" style={{ color: 'var(--modified)' }} />
+          <span className="text-[11px] font-bold uppercase tracking-wider">Kiến trúc bố cục</span>
         </div>
-        <span className="text-[10px] text-[#00F0FF] uppercase font-bold">
+        <span className="text-[10px] uppercase font-bold" style={{ color: 'var(--modified-ink)', fontFamily: 'var(--font-mono)' }}>
           {currentMode.replace(/_/g, ' ')}
         </span>
       </div>
 
-      <p className="text-[10px] text-[#888] font-sans leading-relaxed">
-        Feature A: Toggle between halftone letter-masking and independent wave field molecule dynamics with crisp typographic overlay.
+      <p className="text-[11px] leading-relaxed" style={{ color: 'var(--muted)' }}>
+        Chuyển giữa chế độ halftone che theo hình chữ và trường hạt sóng độc lập với lớp chữ phủ sắc nét.
       </p>
 
-      {/* Effect Text (Text Layer A) visibility — independent from the Original Text / KV Layout layer below */}
-      <div className="p-3 bg-[#0e0e11] border border-[#222] rounded-lg flex items-center justify-between">
+      <div
+        className="p-3 rounded-[var(--radius-input)] border flex items-center justify-between"
+        style={{ background: 'var(--surface-2)', borderColor: 'var(--border)' }}
+      >
         <div className="flex items-center space-x-2">
           {state.showEffectText !== false ? (
-            <Eye className="w-3.5 h-3.5 text-[#00F0FF]" />
+            <Eye className="w-3.5 h-3.5" style={{ color: 'var(--modified)' }} />
           ) : (
-            <EyeOff className="w-3.5 h-3.5 text-[#777]" />
+            <EyeOff className="w-3.5 h-3.5" style={{ color: 'var(--muted)' }} />
           )}
           <div>
-            <span className="block text-[11px] font-bold uppercase text-white">Effect Text (Molecule Layer)</span>
-            <span className="block text-[9px] text-[#888]">Generative particle/wave typography layer</span>
+            <span className="block text-[11px] font-bold uppercase" style={{ color: 'var(--ink)' }}>
+              Effect Text (lớp Molecule)
+            </span>
+            <span className="block text-[9.5px]" style={{ color: 'var(--muted)' }}>
+              Lớp chữ dạng hạt/sóng sinh thành
+            </span>
           </div>
         </div>
         <button
@@ -71,17 +74,17 @@ export const CompositionModeControls: React.FC<CompositionModeControlsProps> = (
               showEffectText: prev.showEffectText === false ? true : false
             }))
           }
-          className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-all border ${
+          className="px-3 py-1.5 rounded-[var(--radius-pill)] text-[10px] font-bold uppercase border transition-colors"
+          style={
             state.showEffectText !== false
-              ? 'bg-[#00F0FF]/20 text-[#00F0FF] border-[#00F0FF]/50'
-              : 'bg-[#1a1a1a] text-[#777] border-[#333] hover:text-white'
-          }`}
+              ? { background: 'var(--modified-bg)', color: 'var(--modified-ink)', borderColor: 'var(--modified)' }
+              : { background: 'var(--chip)', color: 'var(--muted)', borderColor: 'var(--border)' }
+          }
         >
-          {state.showEffectText !== false ? 'VISIBLE' : 'HIDDEN'}
+          {state.showEffectText !== false ? 'Hiện' : 'Ẩn'}
         </button>
       </div>
 
-      {/* Mode Selector Cards */}
       <div className="space-y-2">
         {modes.map((m) => {
           const isSelected = currentMode === m.id;
@@ -94,23 +97,26 @@ export const CompositionModeControls: React.FC<CompositionModeControlsProps> = (
                   compositionMode: m.id
                 }))
               }
-              className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                isSelected
-                  ? 'bg-[#181c24] border-[#00F0FF] shadow-[0_0_10px_rgba(0,240,255,0.2)]'
-                  : 'bg-[#0e0e11] border-[#222] hover:border-[#444]'
-              }`}
+              className="p-3 rounded-[var(--radius-input)] border cursor-pointer transition-colors"
+              style={{
+                background: isSelected ? 'var(--modified-bg)' : 'var(--surface-2)',
+                borderColor: isSelected ? 'var(--modified)' : 'var(--border)'
+              }}
             >
               <div className="flex items-center justify-between">
-                <span className={`text-xs font-bold uppercase ${isSelected ? 'text-[#00F0FF]' : 'text-white'}`}>
+                <span className="text-xs font-bold uppercase" style={{ color: isSelected ? 'var(--modified-ink)' : 'var(--ink)' }}>
                   {m.title}
                 </span>
                 {isSelected && (
-                  <span className="text-[9px] bg-[#00F0FF]/20 text-[#00F0FF] px-1.5 py-0.5 rounded font-mono">
-                    ACTIVE
+                  <span
+                    className="text-[9px] px-1.5 py-0.5 rounded font-bold"
+                    style={{ background: 'var(--modified)', color: 'var(--surface)', fontFamily: 'var(--font-mono)' }}
+                  >
+                    ĐANG DÙNG
                   </span>
                 )}
               </div>
-              <p className="text-[10px] text-[#999] font-sans mt-1 leading-relaxed">
+              <p className="text-[10.5px] mt-1 leading-relaxed" style={{ color: 'var(--ink-2)' }}>
                 {m.subtitle}
               </p>
             </div>
@@ -118,26 +124,24 @@ export const CompositionModeControls: React.FC<CompositionModeControlsProps> = (
         })}
       </div>
 
-      {/* Crisp Typography Layer Settings (when in molecule_wave_only or editorial_collage) */}
       {(currentMode === 'molecule_wave_only' || currentMode === 'editorial_collage') && (
-        <div className="space-y-3 pt-3 border-t border-[#222] bg-[#0a0a0d] p-3 rounded-lg border border-[#222]">
-          <div className="flex items-center space-x-2 text-[#00F0FF]">
+        <div
+          className="space-y-3 pt-3 border-t p-3 rounded-[var(--radius-input)] border"
+          style={{ borderColor: 'var(--border)', background: 'var(--surface-2)' }}
+        >
+          <div className="flex items-center space-x-2" style={{ color: 'var(--modified-ink)' }}>
             <Type className="w-3.5 h-3.5" />
-            <span className="text-[11px] font-bold uppercase">
-              ORIGINAL TYPOGRAPHY OVERLAY
-            </span>
+            <span className="text-[11px] font-bold uppercase">Lớp chữ phủ gốc</span>
           </div>
-          <p className="text-[9px] text-[#777] font-sans leading-relaxed -mt-1">
-            Quick position/scale for this composition's crisp typography (reuses the text from the
-            TEXT tab). For fully independent content, font, and KV layouts, use the TEXT LAYOUT
-            controls below.
+          <p className="text-[10px] leading-relaxed -mt-1" style={{ color: 'var(--muted)' }}>
+            Vị trí/tỉ lệ nhanh cho lớp chữ sắc nét của bố cục này (dùng lại văn bản từ tab Text). Để có
+            nội dung, font và bố cục KV hoàn toàn độc lập, dùng các control Text Layout bên dưới.
           </p>
 
-          {/* Scale Slider */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-[#888] text-[10px] uppercase">TEXT SCALE</label>
-              <span className="text-[#00F0FF] text-[10px]">
+              <label className="text-[10px] uppercase" style={{ color: 'var(--muted)' }}>Tỉ lệ chữ</label>
+              <span className="text-[10px]" style={{ color: 'var(--modified-ink)' }}>
                 {((state.style.editorialHeadlineScale ?? 1.0) * 100).toFixed(0)}%
               </span>
             </div>
@@ -154,15 +158,15 @@ export const CompositionModeControls: React.FC<CompositionModeControlsProps> = (
                   style: { ...prev.style, editorialHeadlineScale: val }
                 }));
               }}
-              className="w-full accent-[#00F0FF] bg-[#1a1a1a] h-1 rounded appearance-none cursor-pointer"
+              className="w-full h-1 rounded appearance-none cursor-pointer"
+              style={{ accentColor: 'var(--modified)', background: 'var(--track)' }}
             />
           </div>
 
-          {/* Opacity Slider */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-[#888] text-[10px] uppercase">TEXT OPACITY</label>
-              <span className="text-[#00F0FF] text-[10px]">
+              <label className="text-[10px] uppercase" style={{ color: 'var(--muted)' }}>Độ mờ chữ</label>
+              <span className="text-[10px]" style={{ color: 'var(--modified-ink)' }}>
                 {((state.style.editorialHeadlineOpacity ?? 1.0) * 100).toFixed(0)}%
               </span>
             </div>
@@ -179,14 +183,14 @@ export const CompositionModeControls: React.FC<CompositionModeControlsProps> = (
                   style: { ...prev.style, editorialHeadlineOpacity: val }
                 }));
               }}
-              className="w-full accent-[#00F0FF] bg-[#1a1a1a] h-1 rounded appearance-none cursor-pointer"
+              className="w-full h-1 rounded appearance-none cursor-pointer"
+              style={{ accentColor: 'var(--modified)', background: 'var(--track)' }}
             />
           </div>
 
-          {/* Offset X & Y */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-[#888] text-[10px] uppercase block mb-1">OFFSET X</label>
+              <label className="text-[10px] uppercase block mb-1" style={{ color: 'var(--muted)' }}>Lệch X</label>
               <input
                 type="range"
                 min="-300"
@@ -200,15 +204,16 @@ export const CompositionModeControls: React.FC<CompositionModeControlsProps> = (
                     style: { ...prev.style, editorialHeadlineOffsetX: val }
                   }));
                 }}
-                className="w-full accent-[#00F0FF] bg-[#1a1a1a] h-1 rounded appearance-none cursor-pointer"
+                className="w-full h-1 rounded appearance-none cursor-pointer"
+                style={{ accentColor: 'var(--modified)', background: 'var(--track)' }}
               />
-              <span className="text-[9px] text-[#666] block text-right font-mono">
+              <span className="text-[9.5px] block text-right" style={{ color: 'var(--muted)', fontFamily: 'var(--font-mono)' }}>
                 {state.style.editorialHeadlineOffsetX || 0}px
               </span>
             </div>
 
             <div>
-              <label className="text-[#888] text-[10px] uppercase block mb-1">OFFSET Y</label>
+              <label className="text-[10px] uppercase block mb-1" style={{ color: 'var(--muted)' }}>Lệch Y</label>
               <input
                 type="range"
                 min="-300"
@@ -222,18 +227,21 @@ export const CompositionModeControls: React.FC<CompositionModeControlsProps> = (
                     style: { ...prev.style, editorialHeadlineOffsetY: val }
                   }));
                 }}
-                className="w-full accent-[#00F0FF] bg-[#1a1a1a] h-1 rounded appearance-none cursor-pointer"
+                className="w-full h-1 rounded appearance-none cursor-pointer"
+                style={{ accentColor: 'var(--modified)', background: 'var(--track)' }}
               />
-              <span className="text-[9px] text-[#666] block text-right font-mono">
+              <span className="text-[9.5px] block text-right" style={{ color: 'var(--muted)', fontFamily: 'var(--font-mono)' }}>
                 {state.style.editorialHeadlineOffsetY || 0}px
               </span>
             </div>
           </div>
 
-          {/* Text Color */}
           <div>
-            <label className="text-[#888] text-[10px] uppercase block mb-1">OVERLAY COLOR</label>
-            <div className="flex items-center space-x-2 bg-[#121212] p-1.5 rounded border border-[#222]">
+            <label className="text-[10px] uppercase block mb-1" style={{ color: 'var(--muted)' }}>Màu lớp phủ</label>
+            <div
+              className="flex items-center space-x-2 p-1.5 rounded-[var(--radius-input)] border"
+              style={{ background: 'var(--chip)', borderColor: 'var(--border)' }}
+            >
               <input
                 type="color"
                 value={state.style.editorialHeadlineColor || '#ffffff'}
@@ -254,7 +262,8 @@ export const CompositionModeControls: React.FC<CompositionModeControlsProps> = (
                     style: { ...prev.style, editorialHeadlineColor: e.target.value }
                   }))
                 }
-                className="w-full bg-transparent text-[#E0E0E0] font-mono text-[10px] focus:outline-none uppercase"
+                className="w-full bg-transparent text-[10px] focus:outline-none uppercase"
+                style={{ color: 'var(--ink)', fontFamily: 'var(--font-mono)' }}
               />
             </div>
           </div>

@@ -2,15 +2,17 @@ import React, { useState } from 'react';
 import { RenderState } from '../types';
 import { PRESETS, PresetCategory } from '../data/presets';
 import { FLIP_DISC_PRESETS } from '../flipDisc/presets';
-import { Sparkles, Check, Radio, Flower2 } from 'lucide-react';
+import { TYPOGRAPHY_TILES_PRESETS } from '../typographyTiles/presets';
+import { Sparkles, Check, Radio, Flower2, Type } from 'lucide-react';
 
 interface PresetGalleryProps {
   state: RenderState;
   onSelectPreset: (presetId: string) => void;
   onSelectFlipDiscPreset?: (presetId: string) => void;
+  onSelectTypographyTilesPreset?: (presetId: string) => void;
 }
 
-const CATEGORIES: { id: PresetCategory | 'ALL'; label: string }[] = [
+const CATEGORIES: { id: PresetCategory | 'ALL' | 'Interactive'; label: string }[] = [
   { id: 'ALL', label: 'ALL' },
   { id: 'News', label: 'NEWS' },
   { id: 'Technology', label: 'TECH' },
@@ -18,15 +20,21 @@ const CATEGORIES: { id: PresetCategory | 'ALL'; label: string }[] = [
   { id: 'Entertainment', label: 'ENTERTAINMENT' },
   { id: 'Sports', label: 'SPORTS' },
   { id: 'Culture', label: 'CULTURE' },
-  { id: 'Children', label: 'CHILDREN' }
+  { id: 'Children', label: 'CHILDREN' },
+  { id: 'Interactive', label: 'INTERACTIVE' }
 ];
 
-export const PresetGallery: React.FC<PresetGalleryProps> = ({ state, onSelectPreset, onSelectFlipDiscPreset }) => {
-  const [selectedCategory, setSelectedCategory] = useState<PresetCategory | 'ALL'>('ALL');
+export const PresetGallery: React.FC<PresetGalleryProps> = ({
+  state,
+  onSelectPreset,
+  onSelectFlipDiscPreset,
+  onSelectTypographyTilesPreset
+}) => {
+  const [selectedCategory, setSelectedCategory] = useState<PresetCategory | 'ALL' | 'Interactive'>('ALL');
 
   const filteredPresets = selectedCategory === 'ALL'
     ? PRESETS
-    : selectedCategory === 'Children'
+    : selectedCategory === 'Children' || selectedCategory === 'Interactive'
     ? []
     : PRESETS.filter(
         (p) =>
@@ -37,6 +45,10 @@ export const PresetGallery: React.FC<PresetGalleryProps> = ({ state, onSelectPre
   // Flip Disc 3D — a separate, self-contained "Children" engine (src/flipDisc/), shown alongside the
   // normal RenderState-based preset cards but routed through onSelectFlipDiscPreset instead.
   const showFlipDiscCards = selectedCategory === 'ALL' || selectedCategory === 'Children';
+
+  // Tile Break — a separate, self-contained "Interactive" engine (src/typographyTiles/), same
+  // treatment as Flip Disc above but routed through onSelectTypographyTilesPreset instead.
+  const showTypographyTilesCards = selectedCategory === 'ALL' || selectedCategory === 'Interactive';
 
   return (
     <div className="space-y-4 font-mono">
@@ -49,7 +61,7 @@ export const PresetGallery: React.FC<PresetGalleryProps> = ({ state, onSelectPre
           </span>
         </div>
         <span className="text-[10px] text-[#888] font-mono">
-          {PRESETS.length + FLIP_DISC_PRESETS.length} PRESETS / {CATEGORIES.length - 1} CATEGORIES
+          {PRESETS.length + FLIP_DISC_PRESETS.length + TYPOGRAPHY_TILES_PRESETS.length} PRESETS / {CATEGORIES.length - 1} CATEGORIES
         </span>
       </div>
 
@@ -57,9 +69,11 @@ export const PresetGallery: React.FC<PresetGalleryProps> = ({ state, onSelectPre
       <div className="flex flex-wrap gap-1">
         {CATEGORIES.map((cat) => {
           const count = cat.id === 'ALL'
-            ? PRESETS.length + FLIP_DISC_PRESETS.length
+            ? PRESETS.length + FLIP_DISC_PRESETS.length + TYPOGRAPHY_TILES_PRESETS.length
             : cat.id === 'Children'
             ? FLIP_DISC_PRESETS.length
+            : cat.id === 'Interactive'
+            ? TYPOGRAPHY_TILES_PRESETS.length
             : PRESETS.filter((p) => p.category === cat.id).length;
 
           const isActive = selectedCategory === cat.id;
@@ -213,6 +227,53 @@ export const PresetGallery: React.FC<PresetGalleryProps> = ({ state, onSelectPre
                 </span>
                 <span className="bg-[#16161c] px-1.5 py-0.5 rounded border border-[#2a2a35] text-[#bbb]">
                   Material: {preset.config.material}
+                </span>
+              </div>
+            </div>
+          ))}
+
+        {/* Tile Break — separate "Interactive" engine (src/typographyTiles/), routed through
+            onSelectTypographyTilesPreset instead of the RenderState preset pipeline above. */}
+        {showTypographyTilesCards &&
+          onSelectTypographyTilesPreset &&
+          TYPOGRAPHY_TILES_PRESETS.map((preset) => (
+            <div
+              key={preset.id}
+              onClick={() => onSelectTypographyTilesPreset(preset.id)}
+              className="p-3 rounded-lg border border-amber-500/30 bg-[#181405] hover:border-amber-500/60 hover:bg-[#201a08] transition-all cursor-pointer text-left relative overflow-hidden group"
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center space-x-2">
+                  <span className="text-[9px] uppercase font-mono px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold flex items-center gap-1">
+                    <Type className="w-2.5 h-2.5" /> Interactive
+                  </span>
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-300 border border-yellow-500/30">
+                    TILE BREAK
+                  </span>
+                </div>
+                <div className="flex items-center space-x-1.5">
+                  {preset.config.palette.slice(0, 3).map((c, i) => (
+                    <div key={i} className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: c }} />
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-white group-hover:text-amber-300">
+                  {preset.name}
+                </h4>
+              </div>
+
+              <p className="text-[10px] text-[#999] leading-relaxed mt-1 font-sans line-clamp-2">
+                {preset.description}
+              </p>
+
+              <div className="mt-2.5 pt-2 border-t border-[#1f1f26] flex flex-wrap gap-1 text-[9px] text-[#777]">
+                <span className="bg-[#16161c] px-1.5 py-0.5 rounded border border-[#2a2a35] text-[#bbb]">
+                  Text: {preset.config.text.split('\n')[0]}
+                </span>
+                <span className="bg-[#16161c] px-1.5 py-0.5 rounded border border-[#2a2a35] text-[#bbb]">
+                  Font: {preset.config.fontFamily}
                 </span>
               </div>
             </div>

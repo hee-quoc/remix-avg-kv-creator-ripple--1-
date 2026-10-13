@@ -82,8 +82,8 @@ export const WaveVariationControls: React.FC<WaveVariationControlsProps> = ({
   ) => (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <label className="text-[#888] text-[10px] uppercase">{label}</label>
-        <span className="text-[#00F0FF] text-[10px]">{(value * 100).toFixed(0)}%</span>
+        <label className="text-[10px] uppercase" style={{ color: 'var(--muted)' }}>{label}</label>
+        <span className="text-[10px]" style={{ color: 'var(--modified-ink)' }}>{(value * 100).toFixed(0)}%</span>
       </div>
       <input
         type="range"
@@ -98,58 +98,58 @@ export const WaveVariationControls: React.FC<WaveVariationControlsProps> = ({
             wave: { ...prev.wave, [field]: val }
           }));
         }}
-        className="w-full accent-[#00F0FF] bg-[#1a1a1a] h-1 rounded appearance-none cursor-pointer"
+        className="w-full h-1 rounded appearance-none cursor-pointer"
+        style={{ accentColor: 'var(--modified)', background: 'var(--track)' }}
       />
     </div>
   );
 
   return (
-    <div className="space-y-3 p-3 bg-[#0a0a0d] border border-[#222] rounded-lg font-mono">
-      <div className="flex items-center justify-between pb-1 border-b border-[#222]">
-        <div className="flex items-center space-x-2 text-[#00F0FF]">
+    <div className="space-y-3 p-3 rounded-[var(--radius-input)] border" style={{ background: 'var(--surface-2)', borderColor: 'var(--border)', fontFamily: 'var(--font-ui)' }}>
+      <div className="flex items-center justify-between pb-1 border-b" style={{ borderColor: 'var(--border)' }}>
+        <div className="flex items-center space-x-2" style={{ color: 'var(--modified-ink)' }}>
           <Waves className="w-3.5 h-3.5" />
-          <span className="text-[11px] font-bold uppercase">
-            RANDOM WAVE VARIATION
-          </span>
+          <span className="text-[11px] font-bold uppercase">Biến thiên sóng ngẫu nhiên</span>
         </div>
         <button
           onClick={toggleEnabled}
-          className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase border transition-all ${
+          className="text-[9px] px-2 py-0.5 rounded font-bold uppercase border transition-colors"
+          style={
             isEnabled
-              ? 'bg-[#00F0FF]/20 text-[#00F0FF] border-[#00F0FF]/50'
-              : 'bg-[#181818] text-[#777] border-[#333]'
-          }`}
+              ? { background: 'var(--modified-bg)', color: 'var(--modified-ink)', borderColor: 'var(--modified)' }
+              : { background: 'var(--chip)', color: 'var(--muted)', borderColor: 'var(--border)' }
+          }
         >
-          {isEnabled ? 'ENABLED' : 'DISABLED'}
+          {isEnabled ? 'Bật' : 'Tắt'}
         </button>
       </div>
 
-      <p className="text-[9px] text-[#888] font-sans leading-relaxed">
-        Lets consecutive waves differ in size, frequency, and intensity (e.g. wave 1 large, wave 2 small,
-        wave 3 medium) instead of repeating identically. Deterministic via the seed below — same seed
-        always reproduces the same sequence. Frequency (spacing/repetition) and Size (scale) stay
-        separate parameters, matching the manual Wave tab controls above.
+      <p className="text-[10px] leading-relaxed" style={{ color: 'var(--muted)' }}>
+        Cho các sóng liên tiếp khác nhau về kích thước, tần số và cường độ (sóng 1 lớn, sóng 2 nhỏ, sóng
+        3 trung bình...) thay vì lặp lại giống nhau. Có tính tất định theo seed bên dưới — cùng seed
+        luôn tái tạo cùng một chuỗi. Tần số (khoảng cách/lặp lại) và Kích thước (tỉ lệ) là hai tham số
+        riêng biệt, khớp với các control thủ công ở tab Sóng phía trên.
       </p>
 
-      {slider('FREQUENCY VARIATION', frequencyVariation, 'frequencyVariation')}
-      {slider('AMPLITUDE VARIATION', amplitudeVariation, 'amplitudeVariation')}
-      {slider('WAVE SIZE RANDOMNESS', sizeRandomness, 'sizeRandomness')}
-      {slider('WAVE INTERVAL VARIATION', intervalVariation, 'intervalVariation')}
+      {slider('Biến thiên tần số', frequencyVariation, 'frequencyVariation')}
+      {slider('Biến thiên biên độ', amplitudeVariation, 'amplitudeVariation')}
+      {slider('Độ ngẫu nhiên kích thước sóng', sizeRandomness, 'sizeRandomness')}
+      {slider('Biến thiên khoảng cách sóng', intervalVariation, 'intervalVariation')}
 
-      {/* Seed Generator */}
       <div className="flex items-center justify-between pt-1">
         <div>
-          <span className="text-[10px] text-[#888] uppercase block">RANDOM SEED</span>
-          <span className="text-[#00F0FF] text-xs font-mono font-bold">
+          <span className="text-[10px] uppercase block" style={{ color: 'var(--muted)' }}>Seed ngẫu nhiên</span>
+          <span className="text-xs font-bold" style={{ color: 'var(--modified-ink)', fontFamily: 'var(--font-mono)' }}>
             #{wave.randomSeed || 42}
           </span>
         </div>
         <button
           onClick={randomizeSeed}
-          className="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-[#181818] hover:bg-[#222] border border-[#333] hover:border-[#00F0FF]/50 text-white text-[10px] font-bold uppercase transition-colors"
+          className="flex items-center space-x-1.5 px-2.5 py-1 rounded-[var(--radius-pill)] border text-[10px] font-bold uppercase transition-colors"
+          style={{ background: 'var(--chip)', borderColor: 'var(--border)', color: 'var(--ink)' }}
         >
-          <Shuffle className="w-3 h-3 text-[#00F0FF]" />
-          <span>RANDOMIZE</span>
+          <Shuffle className="w-3 h-3" style={{ color: 'var(--modified-ink)' }} />
+          <span>Xáo trộn</span>
         </button>
       </div>
     </div>

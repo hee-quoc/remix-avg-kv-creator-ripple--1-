@@ -8,10 +8,10 @@ interface FrequencyMappingControlsProps {
 }
 
 const MODES: { id: FrequencyMappingMode; name: string; desc: string }[] = [
-  { id: 'spatial_only', name: 'SPATIAL ONLY', desc: 'Frequency drives wave spacing only (default)' },
-  { id: 'thickness_only', name: 'THICKNESS ONLY', desc: 'Frequency drives Dynamic Thickness’s frequency only' },
-  { id: 'motion_only', name: 'MOTION ONLY', desc: 'Frequency drives wave motion phase only' },
-  { id: 'combined', name: 'COMBINED', desc: 'One master Frequency drives all three at once' }
+  { id: 'spatial_only', name: 'Chỉ không gian', desc: 'Frequency chỉ điều khiển khoảng cách sóng (mặc định)' },
+  { id: 'thickness_only', name: 'Chỉ độ dày', desc: 'Frequency chỉ điều khiển tần số của Dynamic Thickness' },
+  { id: 'motion_only', name: 'Chỉ chuyển động', desc: 'Frequency chỉ điều khiển pha chuyển động của sóng' },
+  { id: 'combined', name: 'Kết hợp', desc: 'Một Frequency chủ điều khiển cả ba cùng lúc' }
 ];
 
 /**
@@ -46,8 +46,8 @@ export const FrequencyMappingControls: React.FC<FrequencyMappingControlsProps> =
   ) => (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <label className="text-[#888] text-[10px] uppercase">{label}</label>
-        <span className="text-[#00F0FF] text-[10px] font-bold">
+        <label className="text-[10px] uppercase" style={{ color: 'var(--muted)' }}>{label}</label>
+        <span className="text-[10px] font-bold" style={{ color: 'var(--modified-ink)' }}>
           {value.toFixed(decimals)}
           {unit}
         </span>
@@ -59,7 +59,8 @@ export const FrequencyMappingControls: React.FC<FrequencyMappingControlsProps> =
         step={step}
         value={value}
         onChange={(e) => updateWave({ [field]: parseFloat(e.target.value) } as Partial<WaveConfig>)}
-        className="w-full h-[2px] bg-[#222] appearance-none cursor-pointer accent-[#00F0FF]"
+        className="w-full h-[2px] appearance-none cursor-pointer"
+        style={{ background: 'var(--track)', accentColor: 'var(--modified)' }}
       />
     </div>
   );
@@ -67,21 +68,20 @@ export const FrequencyMappingControls: React.FC<FrequencyMappingControlsProps> =
   const showMotion = mapping === 'motion_only' || mapping === 'combined' || (wave.waveMotionAmplitude ?? 0) > 0;
 
   return (
-    <div className="space-y-3 p-3 bg-[#0a0a0d] border border-[#222] rounded-lg font-mono">
-      <div className="flex items-center justify-between pb-1 border-b border-[#222]">
-        <div className="flex items-center space-x-2 text-[#00F0FF]">
+    <div className="space-y-3 p-3 rounded-[var(--radius-input)] border" style={{ background: 'var(--surface-2)', borderColor: 'var(--border)', fontFamily: 'var(--font-ui)' }}>
+      <div className="flex items-center justify-between pb-1 border-b" style={{ borderColor: 'var(--border)' }}>
+        <div className="flex items-center space-x-2" style={{ color: 'var(--modified-ink)' }}>
           <GitBranch className="w-3.5 h-3.5" />
-          <span className="text-[11px] font-bold uppercase">ADVANCED FREQUENCY CONTROL</span>
+          <span className="text-[11px] font-bold uppercase">Điều khiển tần số nâng cao</span>
         </div>
       </div>
 
-      <p className="text-[9px] text-[#888] font-sans leading-relaxed">
-        Two independent frequency mappings: Spatial (wave spacing — the existing Frequency slider
-        above) and Motion (organic per-wave phase drift). Frequency Mapping picks which one the master
-        Frequency slider also drives. Thickness mapping feeds the Dynamic Visual Thickness panel below.
+      <p className="text-[10px] leading-relaxed" style={{ color: 'var(--muted)' }}>
+        Hai kiểu ánh xạ tần số độc lập: Không gian (khoảng cách sóng — slider Frequency ở trên) và
+        Chuyển động (lệch pha hữu cơ từng sóng). Frequency Mapping chọn kiểu nào mà slider Frequency chủ
+        cũng điều khiển. Ánh xạ độ dày sẽ nạp vào panel Dynamic Visual Thickness bên dưới.
       </p>
 
-      {/* Frequency Mapping selector */}
       <div className="grid grid-cols-2 gap-1.5">
         {MODES.map((m) => (
           <button
@@ -89,48 +89,48 @@ export const FrequencyMappingControls: React.FC<FrequencyMappingControlsProps> =
             type="button"
             onClick={() => updateWave({ frequencyMapping: m.id })}
             title={m.desc}
-            className={`p-1.5 rounded border text-left transition-colors ${
+            className="p-1.5 rounded-[var(--radius-input)] border text-left transition-colors"
+            style={
               mapping === m.id
-                ? 'bg-[#00F0FF]/20 border-[#00F0FF] text-[#00F0FF] font-bold'
-                : 'bg-[#121212] border-[#222] text-[#888] hover:text-white'
-            }`}
+                ? { background: 'var(--modified-bg)', borderColor: 'var(--modified)', color: 'var(--modified-ink)' }
+                : { background: 'var(--chip)', borderColor: 'var(--border)', color: 'var(--muted)' }
+            }
           >
-            <span className="block text-[9px] font-bold uppercase">{m.name}</span>
+            <span className="block text-[9.5px] font-bold uppercase">{m.name}</span>
           </button>
         ))}
       </div>
 
       {(mapping === 'thickness_only' || mapping === 'combined') && (
-        <p className="text-[9px] text-[#666] font-sans -mt-1">
-          Enable Dynamic Visual Thickness below (any mode other than Uniform) to see this take effect.
+        <p className="text-[10px] -mt-1" style={{ color: 'var(--muted)' }}>
+          Bật Dynamic Visual Thickness bên dưới (chế độ khác Uniform) để thấy ảnh hưởng của mục này.
         </p>
       )}
 
       {mapping === 'combined' && (
         <div className="grid grid-cols-2 gap-3 pt-1">
-          {slider('→ THICKNESS INFLUENCE', wave.freqThicknessInfluence || 0, 'freqThicknessInfluence', 0, 1, 0.05, '', 2)}
-          {slider('→ MOTION INFLUENCE', wave.freqMotionInfluence || 0, 'freqMotionInfluence', 0, 1, 0.05, '', 2)}
+          {slider('→ Ảnh hưởng độ dày', wave.freqThicknessInfluence || 0, 'freqThicknessInfluence', 0, 1, 0.05, '', 2)}
+          {slider('→ Ảnh hưởng chuyển động', wave.freqMotionInfluence || 0, 'freqMotionInfluence', 0, 1, 0.05, '', 2)}
         </div>
       )}
 
       {mapping === 'thickness_only' &&
-        slider('→ THICKNESS INFLUENCE', wave.freqThicknessInfluence || 0, 'freqThicknessInfluence', 0, 1, 0.05, '', 2)}
+        slider('→ Ảnh hưởng độ dày', wave.freqThicknessInfluence || 0, 'freqThicknessInfluence', 0, 1, 0.05, '', 2)}
 
-      {/* Motion Frequency system */}
-      <div className="space-y-2 pt-2 border-t border-[#1a1a1a]">
-        <span className="text-[10px] font-bold uppercase text-white flex items-center gap-1.5">
-          <Move className="w-3 h-3 text-[#00F0FF]" /> MOTION FREQUENCY
+      <div className="space-y-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+        <span className="text-[10px] font-bold uppercase flex items-center gap-1.5" style={{ color: 'var(--ink)' }}>
+          <Move className="w-3 h-3" style={{ color: 'var(--modified-ink)' }} /> Tần số chuyển động
         </span>
-        {slider('MOTION AMPLITUDE', wave.waveMotionAmplitude || 0, 'waveMotionAmplitude', 0, 1, 0.02, '', 2)}
+        {slider('Biên độ chuyển động', wave.waveMotionAmplitude || 0, 'waveMotionAmplitude', 0, 1, 0.02, '', 2)}
         {showMotion && (
           <>
             <div className="grid grid-cols-2 gap-3">
-              {slider('MOTION FREQUENCY', wave.waveMotionFrequency ?? 1.0, 'waveMotionFrequency', 0, 5, 0.1, '', 1)}
-              {slider('MOTION SPEED', wave.waveMotionSpeed ?? 1.0, 'waveMotionSpeed', 0, 4, 0.05, 'x', 2)}
+              {slider('Tần số chuyển động', wave.waveMotionFrequency ?? 1.0, 'waveMotionFrequency', 0, 5, 0.1, '', 1)}
+              {slider('Tốc độ chuyển động', wave.waveMotionSpeed ?? 1.0, 'waveMotionSpeed', 0, 4, 0.05, 'x', 2)}
             </div>
             <div className="grid grid-cols-2 gap-3">
-              {slider('PHASE OFFSET', wave.waveMotionPhaseOffset || 0, 'waveMotionPhaseOffset', -6.3, 6.3, 0.1, ' rad', 1)}
-              {slider('MOTION VARIATION', wave.waveMotionVariation || 0, 'waveMotionVariation', 0, 1, 0.05, '', 2)}
+              {slider('Lệch pha', wave.waveMotionPhaseOffset || 0, 'waveMotionPhaseOffset', -6.3, 6.3, 0.1, ' rad', 1)}
+              {slider('Biến thiên chuyển động', wave.waveMotionVariation || 0, 'waveMotionVariation', 0, 1, 0.05, '', 2)}
             </div>
           </>
         )}

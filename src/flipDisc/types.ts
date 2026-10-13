@@ -112,5 +112,9 @@ export interface FlipDiscPreset {
   name: string;
   category: 'Children';
   description: string;
+  // Redesign V1-B — see Preset's matching fields in ../types.ts for the full doc comment.
+  pinned?: boolean;
+  quickControls?: string[];
+  legacyName?: string;
   config: FlipDiscConfig;
 }

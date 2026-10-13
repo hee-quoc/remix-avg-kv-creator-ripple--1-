@@ -60,13 +60,22 @@ interface ControlsDrawerProps {
   onClose: () => void;
   onSelectPreset: (presetId: string) => void;
   onSelectFlipDiscPreset?: (presetId: string) => void;
+  onSelectTypographyTilesPreset?: (presetId: string) => void;
   history?: HistoryEntry[];
   onRestoreHistory?: (snapshot: RenderState) => void;
   onClearHistory?: () => void;
   onRemoveHistoryEntry?: (id: string) => void;
+  // Redesign V1-B, Phase P3 — lets the new InspectorShell (components/InspectorShell.tsx) drive which
+  // tab is shown via its own icon rail instead of the drawer's own 8-button tab bar, and render this
+  // drawer "bare" (no outer width/border/background chrome, which the new shell's card already
+  // provides) inside that shell. Both optional and unused by default, so the original standalone
+  // drawer (still used wherever InspectorShell isn't wired in) behaves exactly as before.
+  activeTab?: TabType;
+  onActiveTabChange?: (tab: TabType) => void;
+  hideChrome?: boolean;
 }
 
-type TabType = 'presets' | 'styles' | 'composition' | 'typography' | 'grid' | 'wavefront' | 'style' | 'history';
+export type TabType = 'presets' | 'styles' | 'composition' | 'typography' | 'grid' | 'wavefront' | 'style' | 'history';
 
 const FONT_OPTIONS = [
   { name: 'Space Grotesk', category: 'Display Sans' },
@@ -98,12 +107,18 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
   onClose,
   onSelectPreset,
   onSelectFlipDiscPreset,
+  onSelectTypographyTilesPreset,
   history = [],
   onRestoreHistory,
   onClearHistory,
-  onRemoveHistoryEntry
+  onRemoveHistoryEntry,
+  activeTab: activeTabProp,
+  onActiveTabChange,
+  hideChrome = false
 }) => {
-  const [activeTab, setActiveTab] = useState<TabType>('typography');
+  const [internalTab, setInternalTab] = useState<TabType>('typography');
+  const activeTab = activeTabProp ?? internalTab;
+  const setActiveTab = onActiveTabChange ?? setInternalTab;
   const [videoDuration, setVideoDuration] = useState(5);
   const [customFonts, setCustomFonts] = useState<{ name: string; category: string }[]>([]);
   const [maskLinkAspect, setMaskLinkAspect] = useState(true);
@@ -189,9 +204,18 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
     }));
   };
 
+  const WrapperTag = hideChrome ? React.Fragment : 'div';
+  const wrapperProps = hideChrome
+    ? {}
+    : {
+        className:
+          'w-80 sm:w-96 bg-[#0D0D0D] border-l border-[#222] h-full flex flex-col z-20 text-[#E0E0E0] shadow-2xl shrink-0 font-mono'
+      };
+
   return (
-    <div className="w-80 sm:w-96 bg-[#0D0D0D] border-l border-[#222] h-full flex flex-col z-20 text-[#E0E0E0] shadow-2xl shrink-0 font-mono">
-      {/* Drawer Header Tabs */}
+    <WrapperTag {...wrapperProps}>
+      {/* Drawer Header Tabs — replaced by InspectorShell's own icon rail when hideChrome is set */}
+      {!hideChrome && (
       <div className="grid grid-cols-4 sm:grid-cols-8 border-b border-[#222] bg-[#0A0A0A] p-1 gap-0.5">
         <button
           onClick={() => setActiveTab('presets')}
@@ -289,6 +313,7 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
           HISTORY
         </button>
       </div>
+      )}
 
       {/* Tab Content Body */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6 text-xs font-mono">
@@ -2246,7 +2271,12 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
         {/* ================= TAB: PRESETS & EXPORT ================= */}
         {activeTab === 'presets' && (
           <div className="space-y-4 font-mono">
-            <PresetGallery state={state} onSelectPreset={onSelectPreset} onSelectFlipDiscPreset={onSelectFlipDiscPreset} />
+            <PresetGallery
+              state={state}
+              onSelectPreset={onSelectPreset}
+              onSelectFlipDiscPreset={onSelectFlipDiscPreset}
+              onSelectTypographyTilesPreset={onSelectTypographyTilesPreset}
+            />
 
             <div className="pt-4 border-t border-[#222] space-y-3">
               <label className="block text-[#888888] text-[11px] uppercase tracking-wider">PRODUCTION EXPORTS</label>
@@ -2304,7 +2334,11 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
         )}
 
         {/* ================= TAB: VISUAL STYLE GALLERY ================= */}
-        {activeTab === 'styles' && (
+        {/* Redesign V1-B: shown together with 'style' under the new shell's single "Màu sắc" rail
+            icon (spec section 2 calls out STYLE vs STYLES as a confusing duplicate) — the rail only
+            ever sets activeTab to 'style', so this still renders right below it. The standalone
+            drawer (hideChrome unset) keeps its own separate STYLES tab button, unaffected. */}
+        {(activeTab === 'styles' || (activeTab === 'style' && hideChrome)) && (
           <VisualStyleGallery state={state} onUpdateState={onUpdateState} />
         )}
 
@@ -2424,6 +2458,6 @@ export const ControlsDrawer: React.FC<ControlsDrawerProps> = ({
           </div>
         )}
       </div>
-    </div>
+    </WrapperTag>
   );
 };

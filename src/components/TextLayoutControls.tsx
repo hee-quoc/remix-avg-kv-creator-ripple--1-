@@ -105,70 +105,82 @@ export const TextLayoutControls: React.FC<TextLayoutControlsProps> = ({ state, o
       setSelectedFontUpload(fontName);
     } catch (err) {
       console.error('Failed to load KV layout font:', err);
-      alert('Could not load the font file. Please ensure it is a valid .ttf, .otf, .woff, or .woff2 file.');
+      alert('Không đọc được file font. Hãy chắc chắn đó là file .ttf, .otf, .woff hoặc .woff2 hợp lệ.');
     }
   };
 
+  const inputClass = 'w-full rounded-[var(--radius-input)] border px-1.5 py-1 text-[10px]';
+  const inputStyle: React.CSSProperties = {
+    background: 'var(--chip)',
+    borderColor: 'var(--border)',
+    color: 'var(--ink)',
+    fontFamily: 'var(--font-mono)'
+  };
+  const accentInputStyle: React.CSSProperties = { ...inputStyle, color: 'var(--modified-ink)' };
+
   return (
-    <div className="space-y-3 pt-3 border-t border-[#222]">
+    <div className="space-y-3 pt-3 border-t" style={{ borderColor: 'var(--border)', fontFamily: 'var(--font-ui)' }}>
       <div className="flex items-center justify-between pb-1">
-        <div className="flex items-center space-x-2 text-[#00F0FF]">
+        <div className="flex items-center space-x-2" style={{ color: 'var(--modified-ink)' }}>
           <LayoutTemplate className="w-3.5 h-3.5" />
-          <span className="text-[11px] font-bold uppercase">ORIGINAL TEXT (INDEPENDENT KV LAYOUT)</span>
+          <span className="text-[11px] font-bold uppercase">Văn bản gốc (Bố cục KV độc lập)</span>
         </div>
         <button
           type="button"
           onClick={() => setEnabled(!enabled)}
-          className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase border transition-all ${
+          className="text-[9px] px-2 py-0.5 rounded font-bold uppercase border transition-colors"
+          style={
             enabled
-              ? 'bg-[#00F0FF]/20 text-[#00F0FF] border-[#00F0FF]/50'
-              : 'bg-[#181818] text-[#777] border-[#333]'
-          }`}
+              ? { background: 'var(--modified-bg)', color: 'var(--modified-ink)', borderColor: 'var(--modified)' }
+              : { background: 'var(--chip)', color: 'var(--muted)', borderColor: 'var(--border)' }
+          }
         >
-          {enabled ? 'VISIBLE' : 'HIDDEN'}
+          {enabled ? 'Hiện' : 'Ẩn'}
         </button>
       </div>
 
-      <p className="text-[9px] text-[#888] font-sans leading-relaxed">
-        A completely independent typography/layout layer — never converted to particles, never
-        distorted by waves. Its own content, font (including custom upload), position, rotation,
-        scale and opacity. Editing it never touches the Effect Text or wave/particle configuration.
+      <p className="text-[10px] leading-relaxed" style={{ color: 'var(--muted)' }}>
+        Một lớp typography/bố cục hoàn toàn độc lập — không bao giờ được chuyển thành hạt, không bị
+        sóng làm biến dạng. Có nội dung, font (kể cả font tải lên), vị trí, xoay, tỉ lệ và độ mờ riêng.
+        Chỉnh sửa lớp này không ảnh hưởng đến Effect Text hay cấu hình sóng/hạt.
       </p>
 
       {enabled && kvLayout && (
         <div className="space-y-3">
-          {/* With UI / Without UI mode switch */}
-          <div className="grid grid-cols-2 gap-1.5 bg-[#0A0A0A] p-1 rounded border border-[#222]">
+          <div className="grid grid-cols-2 gap-1.5 p-1 rounded-[var(--radius-input)] border" style={{ background: 'var(--surface-2)', borderColor: 'var(--border)' }}>
             <button
               type="button"
               onClick={() => switchMode('with_ui')}
-              className={`py-1.5 rounded text-[10px] font-mono uppercase transition-colors ${
-                mode === 'with_ui'
-                  ? 'bg-[#222] text-[#00F0FF] border border-[#00F0FF]/40 font-bold'
-                  : 'text-[#888] hover:text-white'
-              }`}
+              className="py-1.5 rounded text-[10px] uppercase transition-colors font-bold"
+              style={{
+                fontFamily: 'var(--font-mono)',
+                background: mode === 'with_ui' ? 'var(--modified-bg)' : 'transparent',
+                color: mode === 'with_ui' ? 'var(--modified-ink)' : 'var(--muted)',
+                border: mode === 'with_ui' ? '1px solid var(--modified)' : '1px solid transparent'
+              }}
             >
-              With UI
+              Có UI
             </button>
             <button
               type="button"
               onClick={() => switchMode('without_ui')}
-              className={`py-1.5 rounded text-[10px] font-mono uppercase transition-colors ${
-                mode === 'without_ui'
-                  ? 'bg-[#222] text-[#00F0FF] border border-[#00F0FF]/40 font-bold'
-                  : 'text-[#888] hover:text-white'
-              }`}
+              className="py-1.5 rounded text-[10px] uppercase transition-colors font-bold"
+              style={{
+                fontFamily: 'var(--font-mono)',
+                background: mode === 'without_ui' ? 'var(--modified-bg)' : 'transparent',
+                color: mode === 'without_ui' ? 'var(--modified-ink)' : 'var(--muted)',
+                border: mode === 'without_ui' ? '1px solid var(--modified)' : '1px solid transparent'
+              }}
             >
-              Without UI
+              Không UI
             </button>
           </div>
-          <p className="text-[9px] text-[#777] font-sans -mt-2">
+          <p className="text-[10px] -mt-2" style={{ color: 'var(--muted)' }}>
             {mode === 'with_ui'
-              ? 'Editorial layout with editable graphic containers (bars, badges, frames).'
-              : 'Clean composition — generative effect + typography only, no containers.'}
+              ? 'Bố cục editorial với khung chứa có thể chỉnh (bar, badge, frame).'
+              : 'Bố cục sạch — chỉ có hiệu ứng sinh thành + typography, không khung chứa.'}
           </p>
 
-          {/* Template Gallery */}
           <div className="grid grid-cols-2 gap-1.5">
             {KV_TEMPLATE_DEFINITIONS.filter((t) => t.mode === mode).map((tpl) => (
               <button
@@ -176,21 +188,21 @@ export const TextLayoutControls: React.FC<TextLayoutControlsProps> = ({ state, o
                 type="button"
                 onClick={() => selectTemplate(tpl.id)}
                 title={tpl.description}
-                className={`py-1.5 px-2 rounded border text-left text-[9px] font-mono uppercase transition-colors ${
+                className="py-1.5 px-2 rounded-[var(--radius-input)] border text-left text-[9.5px] uppercase transition-colors"
+                style={
                   kvLayout.templateId === tpl.id
-                    ? 'bg-[#222] border-[#00F0FF] text-[#00F0FF] font-bold'
-                    : 'bg-[#0A0A0A] border-[#222] text-[#888] hover:text-white'
-                }`}
+                    ? { background: 'var(--modified-bg)', borderColor: 'var(--modified)', color: 'var(--modified-ink)', fontFamily: 'var(--font-mono)', fontWeight: 700 }
+                    : { background: 'var(--surface-2)', borderColor: 'var(--border)', color: 'var(--muted)', fontFamily: 'var(--font-mono)' }
+                }
               >
                 {tpl.name}
               </button>
             ))}
           </div>
 
-          {/* Element selector chips */}
           <div>
-            <label className="flex items-center gap-1 text-[#888] text-[10px] uppercase mb-1">
-              <MousePointerClick className="w-3 h-3" /> Select Element
+            <label className="flex items-center gap-1 text-[10px] uppercase mb-1" style={{ color: 'var(--muted)' }}>
+              <MousePointerClick className="w-3 h-3" /> Chọn phần tử
             </label>
             <div className="flex flex-wrap gap-1.5">
               {kvLayout.textBlocks.map((b) => (
@@ -198,13 +210,14 @@ export const TextLayoutControls: React.FC<TextLayoutControlsProps> = ({ state, o
                   key={b.id}
                   type="button"
                   onClick={() => selectElement(b.id)}
-                  className={`px-2 py-1 rounded text-[9px] font-mono uppercase border transition-colors ${
+                  className="px-2 py-1 rounded-[var(--radius-pill)] text-[9.5px] uppercase border transition-colors"
+                  style={
                     selectedId === b.id
-                      ? 'bg-[#00F0FF]/20 border-[#00F0FF] text-[#00F0FF] font-bold'
-                      : 'bg-[#121212] border-[#222] text-[#888] hover:text-white'
-                  }`}
+                      ? { background: 'var(--modified-bg)', borderColor: 'var(--modified)', color: 'var(--modified-ink)', fontFamily: 'var(--font-mono)', fontWeight: 700 }
+                      : { background: 'var(--chip)', borderColor: 'var(--border)', color: 'var(--muted)', fontFamily: 'var(--font-mono)' }
+                  }
                 >
-                  {b.name || 'Text'}
+                  {b.name || 'Văn bản'}
                 </button>
               ))}
               {kvLayout.graphicElements.map((g) => (
@@ -212,39 +225,41 @@ export const TextLayoutControls: React.FC<TextLayoutControlsProps> = ({ state, o
                   key={g.id}
                   type="button"
                   onClick={() => selectElement(g.id)}
-                  className={`px-2 py-1 rounded text-[9px] font-mono uppercase border transition-colors ${
+                  className="px-2 py-1 rounded-[var(--radius-pill)] text-[9.5px] uppercase border transition-colors"
+                  style={
                     selectedId === g.id
-                      ? 'bg-amber-500/20 border-amber-500 text-amber-300 font-bold'
-                      : 'bg-[#121212] border-[#222] text-[#888] hover:text-white'
-                  }`}
+                      ? { background: 'rgba(245,158,11,0.15)', borderColor: '#f59e0b', color: '#f59e0b', fontFamily: 'var(--font-mono)', fontWeight: 700 }
+                      : { background: 'var(--chip)', borderColor: 'var(--border)', color: 'var(--muted)', fontFamily: 'var(--font-mono)' }
+                  }
                 >
-                  {g.name || 'Container'}
+                  {g.name || 'Khung chứa'}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Text Block Editor */}
           {selectedBlock && (
-            <div className="p-3 bg-[#0a0a0d] border border-[#222] rounded-lg space-y-2.5">
-              <div className="flex items-center space-x-2 text-[#E0E0E0]">
-                <Type className="w-3.5 h-3.5 text-[#00F0FF]" />
-                <span className="text-[10px] font-bold uppercase">{selectedBlock.name || 'Text Block'}</span>
+            <div className="p-3 rounded-[var(--radius-input)] border space-y-2.5" style={{ background: 'var(--surface-2)', borderColor: 'var(--border)' }}>
+              <div className="flex items-center space-x-2" style={{ color: 'var(--ink)' }}>
+                <Type className="w-3.5 h-3.5" style={{ color: 'var(--modified-ink)' }} />
+                <span className="text-[10px] font-bold uppercase">{selectedBlock.name || 'Khối văn bản'}</span>
               </div>
 
               <textarea
                 value={selectedBlock.text}
                 onChange={(e) => updateSelectedBlock({ text: e.target.value })}
                 rows={2}
-                className="w-full bg-[#0A0A0A] border border-[#222] rounded p-2 text-[#E0E0E0] font-mono text-[11px] focus:outline-none focus:border-[#00F0FF]"
-                placeholder="Original text content..."
+                className="w-full rounded-[var(--radius-input)] border p-2 text-[11px] focus:outline-none"
+                style={{ background: 'var(--chip)', borderColor: 'var(--border)', color: 'var(--ink)', fontFamily: 'var(--font-mono)' }}
+                placeholder="Nội dung văn bản gốc..."
               />
 
               <div className="grid grid-cols-2 gap-2">
                 <select
                   value={selectedBlock.fontFamily}
                   onChange={(e) => updateSelectedBlock({ fontFamily: e.target.value })}
-                  className="bg-[#0A0A0A] border border-[#222] rounded p-1.5 text-[#E0E0E0] font-mono text-[10px]"
+                  className={inputClass}
+                  style={inputStyle}
                 >
                   {[...(kvLayout.uploadedFonts || []).map((f) => f.family), ...KV_FONT_OPTIONS]
                     .filter((v, i, arr) => arr.indexOf(v) === i)
@@ -252,9 +267,12 @@ export const TextLayoutControls: React.FC<TextLayoutControlsProps> = ({ state, o
                       <option key={f} value={f}>{f}</option>
                     ))}
                 </select>
-                <label className="cursor-pointer py-1.5 px-2 bg-[#121212] hover:bg-[#1e1e1e] border border-[#222] hover:border-[#00F0FF] rounded text-center text-[9px] font-mono text-[#ccc] hover:text-white uppercase transition-colors flex items-center justify-center gap-1.5">
-                  <Upload className="w-3 h-3 text-[#00F0FF]" />
-                  <span>Upload Font</span>
+                <label
+                  className="cursor-pointer py-1.5 px-2 rounded-[var(--radius-input)] border text-center text-[9.5px] uppercase transition-colors flex items-center justify-center gap-1.5"
+                  style={{ background: 'var(--chip)', borderColor: 'var(--border)', color: 'var(--ink-2)' }}
+                >
+                  <Upload className="w-3 h-3" style={{ color: 'var(--modified-ink)' }} />
+                  <span>Tải font</span>
                   <input
                     type="file"
                     accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2"
@@ -264,24 +282,26 @@ export const TextLayoutControls: React.FC<TextLayoutControlsProps> = ({ state, o
                 </label>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 text-[9px]">
+              <div className="grid grid-cols-3 gap-2 text-[9.5px]">
                 <div>
-                  <span className="text-[#888] block mb-0.5">SIZE</span>
+                  <span className="block mb-0.5" style={{ color: 'var(--muted)' }}>Kích thước</span>
                   <input
                     type="number"
                     min={8}
                     max={300}
                     value={selectedBlock.fontSize}
                     onChange={(e) => updateSelectedBlock({ fontSize: parseFloat(e.target.value) || 0 })}
-                    className="w-full bg-[#0A0A0A] border border-[#222] rounded px-1.5 py-1 text-[#00F0FF] font-mono"
+                    className={inputClass}
+                    style={accentInputStyle}
                   />
                 </div>
                 <div>
-                  <span className="text-[#888] block mb-0.5">WEIGHT</span>
+                  <span className="block mb-0.5" style={{ color: 'var(--muted)' }}>Độ đậm</span>
                   <select
                     value={selectedBlock.fontWeight}
                     onChange={(e) => updateSelectedBlock({ fontWeight: parseInt(e.target.value) })}
-                    className="w-full bg-[#0A0A0A] border border-[#222] rounded px-1 py-1 text-[#E0E0E0] font-mono"
+                    className={inputClass}
+                    style={inputStyle}
                   >
                     <option value={300}>300</option>
                     <option value={400}>400</option>
@@ -290,24 +310,25 @@ export const TextLayoutControls: React.FC<TextLayoutControlsProps> = ({ state, o
                   </select>
                 </div>
                 <div>
-                  <span className="text-[#888] block mb-0.5">ALIGN</span>
+                  <span className="block mb-0.5" style={{ color: 'var(--muted)' }}>Căn lề</span>
                   <select
                     value={selectedBlock.textAlign}
                     onChange={(e) => updateSelectedBlock({ textAlign: e.target.value as KVTextBlock['textAlign'] })}
-                    className="w-full bg-[#0A0A0A] border border-[#222] rounded px-1 py-1 text-[#E0E0E0] font-mono"
+                    className={inputClass}
+                    style={inputStyle}
                   >
-                    <option value="left">Left</option>
-                    <option value="center">Center</option>
-                    <option value="right">Right</option>
+                    <option value="left">Trái</option>
+                    <option value="center">Giữa</option>
+                    <option value="right">Phải</option>
                   </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-[9px]">
+              <div className="grid grid-cols-2 gap-2 text-[9.5px]">
                 <div>
-                  <div className="flex justify-between text-[#888] mb-0.5">
-                    <span>LETTER SPACING</span>
-                    <span className="text-[#00F0FF]">{selectedBlock.letterSpacing}px</span>
+                  <div className="flex justify-between mb-0.5" style={{ color: 'var(--muted)' }}>
+                    <span>Giãn chữ</span>
+                    <span style={{ color: 'var(--modified-ink)' }}>{selectedBlock.letterSpacing}px</span>
                   </div>
                   <input
                     type="range"
@@ -315,13 +336,14 @@ export const TextLayoutControls: React.FC<TextLayoutControlsProps> = ({ state, o
                     max={30}
                     value={selectedBlock.letterSpacing}
                     onChange={(e) => updateSelectedBlock({ letterSpacing: parseFloat(e.target.value) })}
-                    className="w-full h-[2px] bg-[#222] appearance-none cursor-pointer accent-[#00F0FF]"
+                    className="w-full h-[2px] appearance-none cursor-pointer"
+                    style={{ background: 'var(--track)', accentColor: 'var(--modified)' }}
                   />
                 </div>
                 <div>
-                  <div className="flex justify-between text-[#888] mb-0.5">
-                    <span>LINE HEIGHT</span>
-                    <span className="text-[#00F0FF]">{selectedBlock.lineHeight.toFixed(2)}</span>
+                  <div className="flex justify-between mb-0.5" style={{ color: 'var(--muted)' }}>
+                    <span>Chiều cao dòng</span>
+                    <span style={{ color: 'var(--modified-ink)' }}>{selectedBlock.lineHeight.toFixed(2)}</span>
                   </div>
                   <input
                     type="range"
@@ -330,37 +352,40 @@ export const TextLayoutControls: React.FC<TextLayoutControlsProps> = ({ state, o
                     step={0.05}
                     value={selectedBlock.lineHeight}
                     onChange={(e) => updateSelectedBlock({ lineHeight: parseFloat(e.target.value) })}
-                    className="w-full h-[2px] bg-[#222] appearance-none cursor-pointer accent-[#00F0FF]"
+                    className="w-full h-[2px] appearance-none cursor-pointer"
+                    style={{ background: 'var(--track)', accentColor: 'var(--modified)' }}
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-[9px]">
+              <div className="grid grid-cols-2 gap-2 text-[9.5px]">
                 <div>
-                  <span className="text-[#888] block mb-0.5">POSITION X</span>
+                  <span className="block mb-0.5" style={{ color: 'var(--muted)' }}>Vị trí X</span>
                   <input
                     type="number"
                     value={Math.round(selectedBlock.x)}
                     onChange={(e) => updateSelectedBlock({ x: parseFloat(e.target.value) || 0 })}
-                    className="w-full bg-[#0A0A0A] border border-[#222] rounded px-1.5 py-1 text-[#00F0FF] font-mono"
+                    className={inputClass}
+                    style={accentInputStyle}
                   />
                 </div>
                 <div>
-                  <span className="text-[#888] block mb-0.5">POSITION Y</span>
+                  <span className="block mb-0.5" style={{ color: 'var(--muted)' }}>Vị trí Y</span>
                   <input
                     type="number"
                     value={Math.round(selectedBlock.y)}
                     onChange={(e) => updateSelectedBlock({ y: parseFloat(e.target.value) || 0 })}
-                    className="w-full bg-[#0A0A0A] border border-[#222] rounded px-1.5 py-1 text-[#00F0FF] font-mono"
+                    className={inputClass}
+                    style={accentInputStyle}
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 text-[9px]">
+              <div className="grid grid-cols-3 gap-2 text-[9.5px]">
                 <div>
-                  <div className="flex justify-between text-[#888] mb-0.5">
-                    <span>ROTATE</span>
-                    <span className="text-[#00F0FF]">{selectedBlock.rotation || 0}°</span>
+                  <div className="flex justify-between mb-0.5" style={{ color: 'var(--muted)' }}>
+                    <span>Xoay</span>
+                    <span style={{ color: 'var(--modified-ink)' }}>{selectedBlock.rotation || 0}°</span>
                   </div>
                   <input
                     type="range"
@@ -368,13 +393,14 @@ export const TextLayoutControls: React.FC<TextLayoutControlsProps> = ({ state, o
                     max={180}
                     value={selectedBlock.rotation || 0}
                     onChange={(e) => updateSelectedBlock({ rotation: parseFloat(e.target.value) })}
-                    className="w-full h-[2px] bg-[#222] appearance-none cursor-pointer accent-[#00F0FF]"
+                    className="w-full h-[2px] appearance-none cursor-pointer"
+                    style={{ background: 'var(--track)', accentColor: 'var(--modified)' }}
                   />
                 </div>
                 <div>
-                  <div className="flex justify-between text-[#888] mb-0.5">
-                    <span>SCALE</span>
-                    <span className="text-[#00F0FF]">{(selectedBlock.scale ?? 1.0).toFixed(2)}x</span>
+                  <div className="flex justify-between mb-0.5" style={{ color: 'var(--muted)' }}>
+                    <span>Tỉ lệ</span>
+                    <span style={{ color: 'var(--modified-ink)' }}>{(selectedBlock.scale ?? 1.0).toFixed(2)}x</span>
                   </div>
                   <input
                     type="range"
@@ -383,13 +409,14 @@ export const TextLayoutControls: React.FC<TextLayoutControlsProps> = ({ state, o
                     step={0.05}
                     value={selectedBlock.scale ?? 1.0}
                     onChange={(e) => updateSelectedBlock({ scale: parseFloat(e.target.value) })}
-                    className="w-full h-[2px] bg-[#222] appearance-none cursor-pointer accent-[#00F0FF]"
+                    className="w-full h-[2px] appearance-none cursor-pointer"
+                    style={{ background: 'var(--track)', accentColor: 'var(--modified)' }}
                   />
                 </div>
                 <div>
-                  <div className="flex justify-between text-[#888] mb-0.5">
-                    <span>OPACITY</span>
-                    <span className="text-[#00F0FF]">{Math.round(selectedBlock.opacity * 100)}%</span>
+                  <div className="flex justify-between mb-0.5" style={{ color: 'var(--muted)' }}>
+                    <span>Độ mờ</span>
+                    <span style={{ color: 'var(--modified-ink)' }}>{Math.round(selectedBlock.opacity * 100)}%</span>
                   </div>
                   <input
                     type="range"
@@ -398,12 +425,13 @@ export const TextLayoutControls: React.FC<TextLayoutControlsProps> = ({ state, o
                     step={0.05}
                     value={selectedBlock.opacity}
                     onChange={(e) => updateSelectedBlock({ opacity: parseFloat(e.target.value) })}
-                    className="w-full h-[2px] bg-[#222] appearance-none cursor-pointer accent-[#00F0FF]"
+                    className="w-full h-[2px] appearance-none cursor-pointer"
+                    style={{ background: 'var(--track)', accentColor: 'var(--modified)' }}
                   />
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2 bg-[#121212] p-1.5 rounded border border-[#222]">
+              <div className="flex items-center space-x-2 p-1.5 rounded-[var(--radius-input)] border" style={{ background: 'var(--chip)', borderColor: 'var(--border)' }}>
                 <input
                   type="color"
                   value={selectedBlock.color}
@@ -414,87 +442,94 @@ export const TextLayoutControls: React.FC<TextLayoutControlsProps> = ({ state, o
                   type="text"
                   value={selectedBlock.color}
                   onChange={(e) => updateSelectedBlock({ color: e.target.value })}
-                  className="w-full bg-transparent text-[#E0E0E0] font-mono text-[10px] focus:outline-none uppercase"
+                  className="w-full bg-transparent text-[10px] focus:outline-none uppercase"
+                  style={{ color: 'var(--ink)', fontFamily: 'var(--font-mono)' }}
                 />
               </div>
             </div>
           )}
 
-          {/* Graphic Element Editor (With UI mode) */}
           {selectedGraphic && (
-            <div className="p-3 bg-[#0a0a0d] border border-amber-500/20 rounded-lg space-y-2.5">
-              <span className="text-[10px] font-bold uppercase text-amber-300">
-                {selectedGraphic.name || 'Container'}
+            <div className="p-3 rounded-[var(--radius-input)] border space-y-2.5" style={{ background: 'var(--surface-2)', borderColor: 'rgba(245,158,11,0.3)' }}>
+              <span className="text-[10px] font-bold uppercase" style={{ color: '#f59e0b' }}>
+                {selectedGraphic.name || 'Khung chứa'}
               </span>
 
-              <div className="grid grid-cols-4 gap-2 text-[9px]">
+              <div className="grid grid-cols-4 gap-2 text-[9.5px]">
                 <div>
-                  <span className="text-[#888] block mb-0.5">X</span>
+                  <span className="block mb-0.5" style={{ color: 'var(--muted)' }}>X</span>
                   <input
                     type="number"
                     value={Math.round(selectedGraphic.x)}
                     onChange={(e) => updateSelectedGraphic({ x: parseFloat(e.target.value) || 0 })}
-                    className="w-full bg-[#0A0A0A] border border-[#222] rounded px-1 py-1 text-amber-300 font-mono"
+                    className={inputClass}
+                    style={{ ...inputStyle, color: '#f59e0b' }}
                   />
                 </div>
                 <div>
-                  <span className="text-[#888] block mb-0.5">Y</span>
+                  <span className="block mb-0.5" style={{ color: 'var(--muted)' }}>Y</span>
                   <input
                     type="number"
                     value={Math.round(selectedGraphic.y)}
                     onChange={(e) => updateSelectedGraphic({ y: parseFloat(e.target.value) || 0 })}
-                    className="w-full bg-[#0A0A0A] border border-[#222] rounded px-1 py-1 text-amber-300 font-mono"
+                    className={inputClass}
+                    style={{ ...inputStyle, color: '#f59e0b' }}
                   />
                 </div>
                 <div>
-                  <span className="text-[#888] block mb-0.5">W</span>
+                  <span className="block mb-0.5" style={{ color: 'var(--muted)' }}>W</span>
                   <input
                     type="number"
                     value={Math.round(selectedGraphic.width)}
                     onChange={(e) => updateSelectedGraphic({ width: parseFloat(e.target.value) || 0 })}
-                    className="w-full bg-[#0A0A0A] border border-[#222] rounded px-1 py-1 text-amber-300 font-mono"
+                    className={inputClass}
+                    style={{ ...inputStyle, color: '#f59e0b' }}
                   />
                 </div>
                 <div>
-                  <span className="text-[#888] block mb-0.5">H</span>
+                  <span className="block mb-0.5" style={{ color: 'var(--muted)' }}>H</span>
                   <input
                     type="number"
                     value={Math.round(selectedGraphic.height)}
                     onChange={(e) => updateSelectedGraphic({ height: parseFloat(e.target.value) || 0 })}
-                    className="w-full bg-[#0A0A0A] border border-[#222] rounded px-1 py-1 text-amber-300 font-mono"
+                    className={inputClass}
+                    style={{ ...inputStyle, color: '#f59e0b' }}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <span className="text-[#888] block mb-0.5 text-[9px]">BACKGROUND</span>
+                  <span className="block mb-0.5 text-[9.5px]" style={{ color: 'var(--muted)' }}>Nền</span>
                   <input
                     type="text"
                     value={selectedGraphic.backgroundColor || 'transparent'}
                     onChange={(e) => updateSelectedGraphic({ backgroundColor: e.target.value })}
-                    className="w-full bg-[#0A0A0A] border border-[#222] rounded px-1.5 py-1 text-[#E0E0E0] font-mono text-[9px]"
+                    className={`${inputClass} text-[9.5px]`}
+                    style={inputStyle}
                   />
                 </div>
                 <div>
-                  <span className="text-[#888] block mb-0.5 text-[9px]">BORDER</span>
+                  <span className="block mb-0.5 text-[9.5px]" style={{ color: 'var(--muted)' }}>Viền</span>
                   <input
                     type="text"
                     value={selectedGraphic.borderColor || 'transparent'}
                     onChange={(e) => updateSelectedGraphic({ borderColor: e.target.value })}
-                    className="w-full bg-[#0A0A0A] border border-[#222] rounded px-1.5 py-1 text-[#E0E0E0] font-mono text-[9px]"
+                    className={`${inputClass} text-[9.5px]`}
+                    style={inputStyle}
                   />
                 </div>
               </div>
 
               {typeof selectedGraphic.textLabel === 'string' && (
                 <div>
-                  <span className="text-[#888] block mb-0.5 text-[9px]">LABEL TEXT</span>
+                  <span className="block mb-0.5 text-[9.5px]" style={{ color: 'var(--muted)' }}>Nhãn chữ</span>
                   <input
                     type="text"
                     value={selectedGraphic.textLabel}
                     onChange={(e) => updateSelectedGraphic({ textLabel: e.target.value })}
-                    className="w-full bg-[#0A0A0A] border border-[#222] rounded px-1.5 py-1 text-[#E0E0E0] font-mono text-[10px]"
+                    className={inputClass}
+                    style={inputStyle}
                   />
                 </div>
               )}
