@@ -2852,8 +2852,13 @@ export function applyPresetToState(presetOrId: Preset | string, currentState?: R
 
   const base = JSON.parse(JSON.stringify(BASE_DEFAULT_STATE)) as RenderState;
 
-  // Preserve user custom text if already customized and not empty
-  const textToUse = preset.config.font?.text || currentState?.font?.text || base.font.text;
+  // Preserve the user's custom text across a preset switch — but only when the new preset doesn't
+  // specify its own text at all (font.text === undefined). A preset that explicitly sets font.text
+  // to '' (e.g. a pure generative pattern with no letterform mask by design, like Weaving/Mixer)
+  // must have that empty value respected, not silently replaced by whatever text was previously on
+  // screen — '' is a deliberate "no text" choice, not "unset".
+  const textToUse =
+    preset.config.font?.text !== undefined ? preset.config.font.text : currentState?.font?.text || base.font.text;
 
   const merged: RenderState = {
     ...base,
