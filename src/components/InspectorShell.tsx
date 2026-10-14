@@ -116,7 +116,7 @@ export const InspectorShell: React.FC<InspectorShellProps> = ({
                 backImageStatus={flipDiscBackImageStatus}
               />
             )}
-            {rail === 'history' && <FlipDiscHistoryPanel config={flipDiscConfig} />}
+            {rail === 'history' && <FlipDiscHistoryPanel config={flipDiscConfig} onUpdateConfig={onUpdateFlipDiscConfig} />}
           </>
         ) : (
           <>
@@ -129,6 +129,7 @@ export const InspectorShell: React.FC<InspectorShellProps> = ({
             {rail === 'history' && (
               <HistoryPanel
                 state={state}
+                onUpdateState={onUpdateState}
                 history={history}
                 onRestoreHistory={onRestoreHistory}
                 onClearHistory={onClearHistory}
