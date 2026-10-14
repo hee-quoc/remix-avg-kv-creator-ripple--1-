@@ -4,10 +4,29 @@ import { DEFAULT_AUDIO_CONFIG } from '../utils/audioAnalyzer';
 import { DEFAULT_DYNAMIC_THICKNESS_CONFIG } from '../utils/wave';
 export type { PresetCategory };
 
+// The logo shown on first load (before any preset is picked) — same asset as src/assets/default-
+// assets.svg, embedded here as both raw XML (for aspect-ratio-correct SDF rasterization) and a data
+// URL (for the <img> the SDF generator rasterizes from), matching exactly what a user's own SVG
+// upload produces via TextPanel's handleSvgMaskUpload. maskScale stays at the neutral default (1)
+// for the same reason a fresh upload does — see that function's doc comment.
+const DEFAULT_LOGO_SVG_XML = `<svg width="2835" height="1553" viewBox="0 0 2835 1553" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M1025 1359.85C859.017 1293.95 742.44 1146.99 693.88 990.29C690.327 974.202 679.668 940.016 676.622 924.547C674.592 910.624 668.67 872.107 666.47 857.72C656.149 753.768 663.086 646.413 693.711 545.555C742.271 388.854 858.679 241.743 1024.83 176C969.334 205.082 919.928 243.6 878.475 287.841C597.607 580.051 641.429 1156.12 1024.83 1360L1025 1359.85Z" fill="#077BF5"/>
+<path d="M870 1535.8C611.652 1450.31 430.203 1259.66 354.621 1056.38C349.091 1035.51 332.499 991.155 327.759 971.087C324.599 953.026 315.382 903.057 311.958 884.394C295.894 749.537 306.691 610.266 354.358 479.423C429.94 276.135 611.125 85.2887 869.737 -1.08245e-08C783.357 37.7277 706.459 87.6969 641.938 145.091C204.774 524.174 272.982 1271.5 869.737 1536L870 1535.8Z" fill="#077BF5"/>
+<path d="M1029 1190C792.908 1079.05 744.148 741.727 853.732 519.831C893.276 444.889 953.263 379.25 1029 346C958.96 387.864 905.006 454.192 870.321 528.445C775.817 748.618 815.026 1059.24 1029 1190Z" fill="#077BF5"/>
+<path d="M1814.53 161.366C1982.18 232.104 2098.31 385.848 2145.14 548.591C2148.5 565.276 2158.78 600.782 2161.63 616.82C2163.47 631.242 2168.87 671.15 2170.87 686.055C2179.69 793.669 2170.92 904.528 2138.17 1008.3C2086.3 1169.51 1965.62 1319.73 1795.68 1385.06C1852.56 1355.88 1903.39 1316.84 1946.24 1271.77C2236.41 974.158 2201.12 378.009 1814.7 161.209L1814.53 161.366Z" fill="#077BF5"/>
+<path d="M2096.9 103.531C2316.43 180.772 2468.5 348.65 2529.83 526.353C2534.22 544.573 2547.69 583.342 2551.42 600.855C2553.83 616.603 2560.9 660.18 2563.52 676.455C2575.07 793.962 2563.58 915.013 2520.7 1028.32C2452.78 1204.35 2294.75 1368.38 2072.23 1439.72C2146.7 1407.85 2213.27 1365.23 2269.37 1316.01C2649.34 991.044 2603.13 340.09 2097.13 103.359L2096.9 103.531Z" fill="#077BF5"/>
+<path d="M1807 341C2047.18 455.498 2096.78 803.613 1985.3 1032.61C1945.07 1109.95 1884.05 1177.69 1807 1212C1878.25 1168.8 1933.14 1100.35 1968.43 1023.72C2064.57 796.502 2024.68 475.944 1807 341Z" fill="#077BF5"/>
+<path d="M458 1515C228.997 1425.63 76.3749 1216.19 25.8698 999.479C-23.8051 780.636 -5.12504 542.617 109.722 342.324C186.518 211.595 306.761 96.0322 458 38C318.523 111.198 211.701 227.388 142.931 357.49C75.4063 488.094 47.1788 632.736 47.7323 776.5C42.6126 1063.15 175.171 1366.22 458 1515Z" fill="#077BF5"/>
+<path d="M2306 1.26362e-05C2570.5 93.9655 2746.79 314.185 2805.12 542.048C2862.5 772.151 2840.92 1022.42 2708.27 1233.02C2619.57 1370.47 2480.68 1491.98 2306 1553C2467.1 1476.04 2590.48 1353.87 2669.91 1217.07C2747.9 1079.75 2780.51 927.662 2779.87 776.5C2785.78 475.099 2632.67 156.433 2306 1.26362e-05Z" fill="#077BF5"/>
+</svg>
+`;
+const DEFAULT_LOGO_SVG_DATA_URL =
+  'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjgzNSIgaGVpZ2h0PSIxNTUzIiB2aWV3Qm94PSIwIDAgMjgzNSAxNTUzIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cGF0aCBkPSJNMTAyNSAxMzU5Ljg1Qzg1OS4wMTcgMTI5My45NSA3NDIuNDQgMTE0Ni45OSA2OTMuODggOTkwLjI5QzY5MC4zMjcgOTc0LjIwMiA2NzkuNjY4IDk0MC4wMTYgNjc2LjYyMiA5MjQuNTQ3QzY3NC41OTIgOTEwLjYyNCA2NjguNjcgODcyLjEwNyA2NjYuNDcgODU3LjcyQzY1Ni4xNDkgNzUzLjc2OCA2NjMuMDg2IDY0Ni40MTMgNjkzLjcxMSA1NDUuNTU1Qzc0Mi4yNzEgMzg4Ljg1NCA4NTguNjc5IDI0MS43NDMgMTAyNC44MyAxNzZDOTY5LjMzNCAyMDUuMDgyIDkxOS45MjggMjQzLjYgODc4LjQ3NSAyODcuODQxQzU5Ny42MDcgNTgwLjA1MSA2NDEuNDI5IDExNTYuMTIgMTAyNC44MyAxMzYwTDEwMjUgMTM1OS44NVoiIGZpbGw9IiMwNzdCRjUiLz4KPHBhdGggZD0iTTg3MCAxNTM1LjhDNjExLjY1MiAxNDUwLjMxIDQzMC4yMDMgMTI1OS42NiAzNTQuNjIxIDEwNTYuMzhDMzQ5LjA5MSAxMDM1LjUxIDMzMi40OTkgOTkxLjE1NSAzMjcuNzU5IDk3MS4wODdDMzI0LjU5OSA5NTMuMDI2IDMxNS4zODIgOTAzLjA1NyAzMTEuOTU4IDg4NC4zOTRDMjk1Ljg5NCA3NDkuNTM3IDMwNi42OTEgNjEwLjI2NiAzNTQuMzU4IDQ3OS40MjNDNDI5Ljk0IDI3Ni4xMzUgNjExLjEyNSA4NS4yODg3IDg2OS43MzcgLTEuMDgyNDVlLTA4Qzc4My4zNTcgMzcuNzI3NyA3MDYuNDU5IDg3LjY5NjkgNjQxLjkzOCAxNDUuMDkxQzIwNC43NzQgNTI0LjE3NCAyNzIuOTgyIDEyNzEuNSA4NjkuNzM3IDE1MzZMODcwIDE1MzUuOFoiIGZpbGw9IiMwNzdCRjUiLz4KPHBhdGggZD0iTTEwMjkgMTE5MEM3OTIuOTA4IDEwNzkuMDUgNzQ0LjE0OCA3NDEuNzI3IDg1My43MzIgNTE5LjgzMUM4OTMuMjc2IDQ0NC44ODkgOTUzLjI2MyAzNzkuMjUgMTAyOSAzNDZDOTU4Ljk2IDM4Ny44NjQgOTA1LjAwNiA0NTQuMTkyIDg3MC4zMjEgNTI4LjQ0NUM3NzUuODE3IDc0OC42MTggODE1LjAyNiAxMDU5LjI0IDEwMjkgMTE5MFoiIGZpbGw9IiMwNzdCRjUiLz4KPHBhdGggZD0iTTE4MTQuNTMgMTYxLjM2NkMxOTgyLjE4IDIzMi4xMDQgMjA5OC4zMSAzODUuODQ4IDIxNDUuMTQgNTQ4LjU5MUMyMTQ4LjUgNTY1LjI3NiAyMTU4Ljc4IDYwMC43ODIgMjE2MS42MyA2MTYuODJDMjE2My40NyA2MzEuMjQyIDIxNjguODcgNjcxLjE1IDIxNzAuODcgNjg2LjA1NUMyMTc5LjY5IDc5My42NjkgMjE3MC45MiA5MDQuNTI4IDIxMzguMTcgMTAwOC4zQzIwODYuMyAxMTY5LjUxIDE5NjUuNjIgMTMxOS43MyAxNzk1LjY4IDEzODUuMDZDMTg1Mi41NiAxMzU1Ljg4IDE5MDMuMzkgMTMxNi44NCAxOTQ2LjI0IDEyNzEuNzdDMjIzNi40MSA5NzQuMTU4IDIyMDEuMTIgMzc4LjAwOSAxODE0LjcgMTYxLjIwOUwxODE0LjUzIDE2MS4zNjZaIiBmaWxsPSIjMDc3QkY1Ii8+CjxwYXRoIGQ9Ik0yMDk2LjkgMTAzLjUzMUMyMzE2LjQzIDE4MC43NzIgMjQ2OC41IDM0OC42NSAyNTI5LjgzIDUyNi4zNTNDMjUzNC4yMiA1NDQuNTczIDI1NDcuNjkgNTgzLjM0MiAyNTUxLjQyIDYwMC44NTVDMjU1My44MyA2MTYuNjAzIDI1NjAuOSA2NjAuMTggMjU2My41MiA2NzYuNDU1QzI1NzUuMDcgNzkzLjk2MiAyNTYzLjU4IDkxNS4wMTMgMjUyMC43IDEwMjguMzJDMjQ1Mi43OCAxMjA0LjM1IDIyOTQuNzUgMTM2OC4zOCAyMDcyLjIzIDE0MzkuNzJDMjE0Ni43IDE0MDcuODUgMjIxMy4yNyAxMzY1LjIzIDIyNjkuMzcgMTMxNi4wMUMyNjQ5LjM0IDk5MS4wNDQgMjYwMy4xMyAzNDAuMDkgMjA5Ny4xMyAxMDMuMzU5TDIwOTYuOSAxMDMuNTMxWiIgZmlsbD0iIzA3N0JGNSIvPgo8cGF0aCBkPSJNMTgwNyAzNDFDMjA0Ny4xOCA0NTUuNDk4IDIwOTYuNzggODAzLjYxMyAxOTg1LjMgMTAzMi42MUMxOTQ1LjA3IDExMDkuOTUgMTg4NC4wNSAxMTc3LjY5IDE4MDcgMTIxMkMxODc4LjI1IDExNjguOCAxOTMzLjE0IDExMDAuMzUgMTk2OC40MyAxMDIzLjcyQzIwNjQuNTcgNzk2LjUwMiAyMDI0LjY4IDQ3NS45NDQgMTgwNyAzNDFaIiBmaWxsPSIjMDc3QkY1Ii8+CjxwYXRoIGQ9Ik00NTggMTUxNUMyMjguOTk3IDE0MjUuNjMgNzYuMzc0OSAxMjE2LjE5IDI1Ljg2OTggOTk5LjQ3OUMtMjMuODA1MSA3ODAuNjM2IC01LjEyNTA0IDU0Mi42MTcgMTA5LjcyMiAzNDIuMzI0QzE4Ni41MTggMjExLjU5NSAzMDYuNzYxIDk2LjAzMjIgNDU4IDM4QzMxOC41MjMgMTExLjE5OCAyMTEuNzAxIDIyNy4zODggMTQyLjkzMSAzNTcuNDlDNzUuNDA2MyA0ODguMDk0IDQ3LjE3ODggNjMyLjczNiA0Ny43MzIzIDc3Ni41QzQyLjYxMjYgMTA2My4xNSAxNzUuMTcxIDEzNjYuMjIgNDU4IDE1MTVaIiBmaWxsPSIjMDc3QkY1Ii8+CjxwYXRoIGQ9Ik0yMzA2IDEuMjYzNjJlLTA1QzI1NzAuNSA5My45NjU1IDI3NDYuNzkgMzE0LjE4NSAyODA1LjEyIDU0Mi4wNDhDMjg2Mi41IDc3Mi4xNTEgMjg0MC45MiAxMDIyLjQyIDI3MDguMjcgMTIzMy4wMkMyNjE5LjU3IDEzNzAuNDcgMjQ4MC42OCAxNDkxLjk4IDIzMDYgMTU1M0MyNDY3LjEgMTQ3Ni4wNCAyNTkwLjQ4IDEzNTMuODcgMjY2OS45MSAxMjE3LjA3QzI3NDcuOSAxMDc5Ljc1IDI3ODAuNTEgOTI3LjY2MiAyNzc5Ljg3IDc3Ni41QzI3ODUuNzggNDc1LjA5OSAyNjMyLjY3IDE1Ni40MzMgMjMwNiAxLjI2MzYyZS0wNVoiIGZpbGw9IiMwNzdCRjUiLz4KPC9zdmc+Cg==';
+
 export const BASE_DEFAULT_STATE: RenderState = {
   previewQuality: 'auto',
   font: {
-    text: 'RADAR\nFIELDS',
+    text: '',
     fontFamily: 'Space Grotesk',
     fontSize: 140,
     fontWeight: 700,
@@ -15,7 +34,13 @@ export const BASE_DEFAULT_STATE: RenderState = {
     lineHeight: 0.95,
     textAlign: 'center',
     invertText: false,
-    maskMode: 'text'
+    maskMode: 'svg_mask',
+    maskSvgXml: DEFAULT_LOGO_SVG_XML,
+    maskSvgDataUrl: DEFAULT_LOGO_SVG_DATA_URL,
+    maskSvgName: 'default-assets.svg',
+    maskScaleX: 1,
+    maskScaleY: 1,
+    maskScale: 1
   },
   grid: {
     gridType: 'square',
@@ -1292,16 +1317,16 @@ const CURATED_PRESETS: Preset[] = [
       font: {
         text: 'NEVO',
         fontFamily: 'Space Grotesk',
-        fontSize: 120,
+        fontSize: 125,
         fontWeight: 800,
         letterSpacing: 4,
         lineHeight: 0.95,
         textAlign: 'center',
         invertText: false,
         maskMode: 'text',
-        maskScaleX: 2.45,
-        maskScaleY: 2.45,
-        maskScale: 2.45
+        maskScaleX: 3,
+        maskScaleY: 3,
+        maskScale: 3
       },
       grid: {
         gridType: 'square',
@@ -1718,9 +1743,9 @@ const CURATED_PRESETS: Preset[] = [
         textAlign: 'center',
         invertText: false,
         maskMode: 'text',
-        maskScaleX: 1.9,
-        maskScaleY: 1.9,
-        maskScale: 1.9
+        maskScaleX: 3,
+        maskScaleY: 3,
+        maskScale: 3
       },
       grid: {
         gridType: 'square',
@@ -1965,7 +1990,7 @@ const CURATED_PRESETS: Preset[] = [
       font: {
         text: 'NEVO',
         fontFamily: 'Anton',
-        fontSize: 177,
+        fontSize: 125,
         fontWeight: 400,
         letterSpacing: 3,
         lineHeight: 0.9,
@@ -2215,9 +2240,9 @@ const CURATED_PRESETS: Preset[] = [
         textAlign: 'center',
         invertText: false,
         maskMode: 'text',
-        maskScaleX: 2.1,
-        maskScaleY: 2.1,
-        maskScale: 2.1
+        maskScaleX: 3,
+        maskScaleY: 3,
+        maskScale: 3
       },
       grid: {
         gridType: 'square',
@@ -3075,9 +3100,14 @@ export function applyPresetToState(presetOrId: Preset | string, currentState?: R
       // Uploaded SVG-as-text-mask logo is a cross-cutting user asset, not a preset-owned visual
       // default — no preset currently bakes in its own maskSvgXml, so carry the user's upload (and
       // the maskMode that activates it) forward across preset switches instead of discarding it.
+      // Excludes the app's own first-load default logo (maskSvgName === 'default-assets.svg') —
+      // that one is BASE_DEFAULT_STATE's own visual, not something the user uploaded, so picking any
+      // preset should replace it with that preset's own text/shape mask like normal, not carry it
+      // forward forever just because it happens to be active when the page first loads.
       ...(preset.config.font?.maskSvgXml === undefined &&
       currentState?.font?.maskMode === 'svg_mask' &&
-      currentState?.font?.maskSvgXml
+      currentState?.font?.maskSvgXml &&
+      currentState?.font?.maskSvgName !== 'default-assets.svg'
         ? {
             maskMode: currentState.font.maskMode,
             maskSvgDataUrl: currentState.font.maskSvgDataUrl,
