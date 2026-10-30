@@ -3068,7 +3068,51 @@ const CURATED_PRESETS: Preset[] = [
   }
 ];
 
-export const PRESETS: Preset[] = [...CURATED_PRESETS, ...LEGACY_KINETIC_PRESETS];
+// Logo-SVG starter set — the first-load default look (BASE_DEFAULT_STATE: default-assets.svg mask,
+// wave_ripple material) plus material/color variants in the brand palette (#170522 / #9F75FF /
+// #39BAFF / #7CE4FF / #ECECEC). Shown first in the PresetStrip; everything else sits under "Mở rộng".
+// No frequency/amplitude/size jitter, so the ripple stays clean.
+const logoPreset = (
+  id: string,
+  name: string,
+  description: string,
+  overrides: { grid?: Partial<RenderState['grid']>; wave?: Partial<RenderState['wave']>; style?: Partial<RenderState['style']> } = {}
+): Preset => ({
+  id,
+  name,
+  category: 'Technology',
+  description,
+  compositionMode: 'full_molecule',
+  defaultVisualStyle: 'dot_matrix',
+  featured: true,
+  config: {
+    compositionMode: 'full_molecule',
+    activeVisualStyle: 'dot_matrix',
+    font: { ...BASE_DEFAULT_STATE.font },
+    grid: { ...BASE_DEFAULT_STATE.grid, ...overrides.grid },
+    wave: { ...BASE_DEFAULT_STATE.wave, ...overrides.wave },
+    style: { ...BASE_DEFAULT_STATE.style, ...overrides.style }
+  }
+});
+
+const LOGO_PRESETS: Preset[] = [
+  logoPreset('logo_ripple', 'Logo · Ripple', 'Look mặc định khi mở app — logo SVG với chất liệu wave ripple xanh cyan.'),
+  logoPreset('logo_violet', 'Logo · Violet', 'Logo SVG chấm tròn lưới lục giác, tím brand trên nền tím đậm.', {
+    grid: { gridType: 'hexagonal', dotShape: 'circle', density: 9, minRadius: 0.8, maxRadius: 4.5 },
+    style: { dotColor: '#9F75FF', bgColor: '#170522', accentColor: '#9F75FF', gradientColor: '#7CE4FF' }
+  }),
+  logoPreset('logo_pixel', 'Logo · Pixel', 'Logo SVG dạng pixel vuông, xanh brand chuyển sang cyan, sóng dạng bậc.', {
+    grid: { dotShape: 'square', density: 9, minRadius: 0.8, maxRadius: 4.5 },
+    wave: { waveType: 'square', waveFrequency: 1.0 },
+    style: { dotColor: '#39BAFF', bgColor: '#170522', accentColor: '#39BAFF', gradientColor: '#7CE4FF' }
+  }),
+  logoPreset('logo_ring', 'Logo · Ring Light', 'Logo SVG chấm vòng (ring) tím đậm trên nền sáng, điểm nhấn tím brand.', {
+    grid: { dotShape: 'ring', density: 10, minRadius: 1.2, maxRadius: 5.5 },
+    style: { dotColor: '#170522', bgColor: '#ECECEC', accentColor: '#9F75FF', gradientColor: '#9F75FF', vignette: false, uniformColorBrightness: true }
+  })
+];
+
+export const PRESETS: Preset[] = [...LOGO_PRESETS, ...CURATED_PRESETS, ...LEGACY_KINETIC_PRESETS];
 
 /**
  * Creates a clean, reproducible RenderState from a selected Preset without leftover dirty properties

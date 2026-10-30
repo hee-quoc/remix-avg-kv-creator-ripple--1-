@@ -1,11 +1,15 @@
 import React, { useRef } from 'react';
 import { RenderState } from '../types';
-import { Waves, Shuffle } from 'lucide-react';
+import { Waves, Shuffle, Lock } from 'lucide-react';
 
 interface WaveVariationControlsProps {
   state: RenderState;
   onUpdateState: (updater: (prev: RenderState) => RenderState) => void;
 }
+
+// Temporarily locked per explicit instruction: dragging it made the ripple spread out chaotically.
+// Presets that ship their own frequencyVariation still render it; it just can't be tuned here.
+const FREQUENCY_VARIATION_LOCKED = true;
 
 interface StashedVariation {
   frequencyVariation: number;
@@ -35,9 +39,10 @@ export const WaveVariationControls: React.FC<WaveVariationControlsProps> = ({
     frequencyVariation > 0 || amplitudeVariation > 0 || sizeRandomness > 0 || intervalVariation > 0;
 
   // Remembers the last non-zero randomness values so the ENABLED/DISABLED
-  // quick-toggle can restore them after being switched off.
+  // quick-toggle can restore them after being switched off. Frequency variation is locked (see
+  // FREQUENCY_VARIATION_LOCKED), so the toggle never introduces it — it only restores a preset's own value.
   const stashRef = useRef<StashedVariation>({
-    frequencyVariation: frequencyVariation || 0.35,
+    frequencyVariation: frequencyVariation || 0,
     amplitudeVariation: amplitudeVariation || 0.4,
     sizeRandomness: sizeRandomness || 0.35,
     intervalVariation: intervalVariation || 0.3
@@ -78,11 +83,15 @@ export const WaveVariationControls: React.FC<WaveVariationControlsProps> = ({
   const slider = (
     label: string,
     value: number,
-    field: 'frequencyVariation' | 'amplitudeVariation' | 'sizeRandomness' | 'intervalVariation'
+    field: 'frequencyVariation' | 'amplitudeVariation' | 'sizeRandomness' | 'intervalVariation',
+    locked = false
   ) => (
-    <div>
+    <div style={locked ? { opacity: 0.45 } : undefined} title={locked ? 'Tạm khoá' : undefined}>
       <div className="flex items-center justify-between mb-1">
-        <label className="text-[10px] uppercase" style={{ color: 'var(--muted)' }}>{label}</label>
+        <label className="text-[10px] uppercase flex items-center gap-1" style={{ color: 'var(--muted)' }}>
+          {label}
+          {locked && <Lock className="w-2.5 h-2.5" />}
+        </label>
         <span className="text-[10px]" style={{ color: 'var(--modified-ink)' }}>{(value * 100).toFixed(0)}%</span>
       </div>
       <input
@@ -91,6 +100,7 @@ export const WaveVariationControls: React.FC<WaveVariationControlsProps> = ({
         max="1"
         step="0.02"
         value={value}
+        disabled={locked}
         onChange={(e) => {
           const val = parseFloat(e.target.value);
           onUpdateState((prev) => ({
@@ -98,7 +108,7 @@ export const WaveVariationControls: React.FC<WaveVariationControlsProps> = ({
             wave: { ...prev.wave, [field]: val }
           }));
         }}
-        className="w-full h-1 rounded appearance-none cursor-pointer"
+        className={`w-full h-1 rounded appearance-none ${locked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
         style={{ accentColor: 'var(--modified)', background: 'var(--track)' }}
       />
     </div>
@@ -131,7 +141,7 @@ export const WaveVariationControls: React.FC<WaveVariationControlsProps> = ({
         riêng biệt, khớp với các control thủ công ở tab Sóng phía trên.
       </p>
 
-      {slider('Biến thiên tần số', frequencyVariation, 'frequencyVariation')}
+      {slider('Biến thiên tần số', frequencyVariation, 'frequencyVariation', FREQUENCY_VARIATION_LOCKED)}
       {slider('Biến thiên biên độ', amplitudeVariation, 'amplitudeVariation')}
       {slider('Độ ngẫu nhiên kích thước sóng', sizeRandomness, 'sizeRandomness')}
       {slider('Biến thiên khoảng cách sóng', intervalVariation, 'intervalVariation')}

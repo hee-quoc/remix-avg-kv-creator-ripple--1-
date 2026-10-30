@@ -776,6 +776,9 @@ export interface Preset {
   // data — used to temporarily retire the original Kinetic preset set in favor of a newer curated
   // one while keeping the old presets' code/config intact and reachable by id if ever needed again.
   hidden?: boolean;
+  // Marks the logo-SVG starter presets shown first in the PresetStrip, above the collapsible
+  // "Mở rộng" section that holds every other preset.
+  featured?: boolean;
   config: {
     font?: Partial<FontConfig>;
     grid?: Partial<GridConfig>;
