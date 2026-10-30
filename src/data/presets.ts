@@ -3112,6 +3112,49 @@ const LOGO_PRESETS: Preset[] = [
   })
 ];
 
+// Logo-SVG versions of curated presets: same material/wave/colors as the source preset, but masked to
+// the default logo instead of its NEVO text, with the per-wave jitter zeroed so the ripple stays clean.
+const logoFromPreset = (
+  sourceId: string,
+  id: string,
+  name: string,
+  description: string,
+  gridOverrides: Partial<RenderState['grid']> = {}
+): Preset => {
+  const source = CURATED_PRESETS.find((p) => p.id === sourceId)!;
+  return {
+    ...logoPreset(id, name, description),
+    category: source.category,
+    compositionMode: source.compositionMode,
+    defaultVisualStyle: source.defaultVisualStyle,
+    config: {
+      ...source.config,
+      font: { ...BASE_DEFAULT_STATE.font },
+      // Background dots hidden so the logo silhouette reads (sources like ASCII/Finance fill the frame).
+      grid: { ...source.config.grid, hideBackgroundDots: true, ...gridOverrides },
+      wave: { ...source.config.wave, frequencyVariation: 0, amplitudeVariation: 0, sizeRandomness: 0 }
+    }
+  };
+};
+
+LOGO_PRESETS.push(
+  logoFromPreset('ascii_scan', 'logo_ascii', 'Logo · ASCII', 'Logo SVG dựng bằng ký tự ASCII trắng trên nền đen, chất liệu của preset ASCII.'),
+  // Finance's ticker boxes are sized for big NEVO letters — shrunk so they fit the logo's thin arcs.
+  logoFromPreset('finance_ticker', 'logo_finance', 'Logo · Finance', 'Logo SVG bằng các ô chữ ticker kiểu bảng tài chính, chất liệu của preset Finance.', {
+    typographyBox: {
+      ...CURATED_PRESETS.find((p) => p.id === 'finance_ticker')!.config.grid!.typographyBox!,
+      fontSize: 8,
+      boxHeight: 18,
+      horizontalPadding: 5,
+      marginX: 4
+    }
+  }),
+  logoFromPreset('statistic_grid', 'logo_statistic', 'Logo · Statistic', 'Logo SVG bằng chất liệu stitch tím, chất liệu của preset Statistic.'),
+  logoFromPreset('science_ring', 'logo_science', 'Logo · Science', 'Logo SVG bằng chấm vòng hồng trên nền đen, chất liệu của preset Science.'),
+  logoFromPreset('radar_arc', 'logo_radar', 'Logo · Radar', 'Logo SVG bằng các cung đồng tâm kiểu radar, chất liệu của preset Radar.'),
+  logoFromPreset('weavomg_stitch', 'logo_weavomg', 'Logo · Weavomg', 'Logo SVG bằng mũi đan xanh, chất liệu của preset Weavomg.')
+);
+
 export const PRESETS: Preset[] = [...LOGO_PRESETS, ...CURATED_PRESETS, ...LEGACY_KINETIC_PRESETS];
 
 /**
